@@ -140,6 +140,22 @@ docker run -d \
   ghcr.io/lazztech/libre-closet
 ```
 
+### Home Assistant add-on
+
+This repository is a ready-made local Home Assistant add-on: `config.yaml`, `Dockerfile` and `ha/run.sh` are in the root. Copy the whole repository into a folder in your local add-ons directory (e.g. `libre_closet/`) and install it. To update, copy the new files over the old ones and press **Rebuild** (or **Update** when the version changed). Nothing needs editing.
+
+Settings are add-on options in the Home Assistant UI:
+
+| Option | Default | |
+| --- | --- | --- |
+| `auth_enabled` | `true` | Require login |
+| `disable_registration` | `true` | Block new sign-ups (turn off once to create your account) |
+| `currency` | `EUR` | Currency for garment prices |
+| `weather_enabled` | `true` | `false` = no external weather calls |
+| `app_name` | `Libre Closet` | Name shown in the app |
+
+Data (database, photos, try-on models) lives in the add-on's `/data`. A login secret is generated on first start and kept there. Try-on models are excluded from Home Assistant backups.
+
 ### docker-compose
 
 ```yaml
