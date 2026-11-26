@@ -1,0 +1,5 @@
+# Lets Home Assistant use this repository as an add-on store:
+# Settings > Add-ons > Add-on Store > ⋮ > Repositories.
+name: vibed-closet
+url: https://github.com/coffeec0der/vibed-closet
+maintainer: coffeec0der
