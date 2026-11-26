@@ -21,11 +21,22 @@ import {
   usesTwelveHourClock,
 } from '../weather/temperature-unit.util';
 import { CalendarService } from './calendar.service';
+import { ConfigService } from '@nestjs/config';
+import { GarmentService } from './garment.service';
 
 @UseGuards(ConditionalAuthGuard)
 @Controller('calendar')
 export class CalendarController {
-  constructor(private readonly calendarService: CalendarService) {}
+  constructor(
+    private readonly calendarService: CalendarService,
+    private readonly garmentService: GarmentService,
+    private readonly configService: ConfigService,
+  ) {}
+
+  /** WEATHER_ENABLED=false keeps the app fully offline (no Open-Meteo calls). */
+  private get weatherEnabled(): boolean {
+    return this.configService.get<boolean>('WEATHER_ENABLED') !== false;
+  }
 
   private userId(req: FastifyRequest): number | undefined {
     return (req['user'] as Payload | undefined)?.userId;
@@ -47,8 +58,11 @@ export class CalendarController {
     @Req() req: FastifyRequest,
     @I18n() i18n: I18nContext,
   ) {
-    const lat = latParam != null ? parseFloat(latParam) : undefined;
-    const lon = lonParam != null ? parseFloat(lonParam) : undefined;
+    const weatherOn = this.weatherEnabled;
+    const lat =
+      weatherOn && latParam != null ? parseFloat(latParam) : undefined;
+    const lon =
+      weatherOn && lonParam != null ? parseFloat(lonParam) : undefined;
     const acceptLanguage = this.acceptLanguage(req);
     return this.calendarService.buildIndexViewModel(
       weekParam,
@@ -70,6 +84,9 @@ export class CalendarController {
     @Res() reply: FastifyReply,
     @I18n() i18n: I18nContext,
   ) {
+    if (!this.weatherEnabled) {
+      return reply.viewPartial('calendar/weather_modal', { forecast: null });
+    }
     const lat = latParam != null ? parseFloat(latParam) : undefined;
     const lon = lonParam != null ? parseFloat(lonParam) : undefined;
     const acceptLanguage = this.acceptLanguage(req);
@@ -83,6 +100,50 @@ export class CalendarController {
       acceptLanguage,
     );
     return reply.viewPartial('calendar/weather_modal', viewModel);
+  }
+
+  /**
+   * Packing list: every garment scheduled between `from` and `to` (inclusive).
+   * Defaults to the next 7 days.
+   */
+  @Get('packing')
+  @Render('calendar/packing')
+  async packing(
+    @Query('from') fromParam: string | undefined,
+    @Query('to') toParam: string | undefined,
+    @Req() req: FastifyRequest,
+    @I18n() i18n: I18nContext,
+  ) {
+    const isDate = (v?: string) => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
+    const today = new Date().toISOString().slice(0, 10);
+    let from = isDate(fromParam) ? fromParam! : today;
+    let to = isDate(toParam)
+      ? toParam!
+      : new Date(Date.parse(from) + 6 * 86400000).toISOString().slice(0, 10);
+    if (to < from) [from, to] = [to, from];
+
+    const { garments, outfitCount, dayCount } =
+      await this.calendarService.packingList(
+        new Date(from),
+        new Date(to),
+        this.userId(req),
+      );
+    const groups: { label: string; garments: typeof garments }[] = [];
+    for (const g of garments) {
+      const label = this.garmentService.resolveCategoryLabel(g.category, i18n);
+      const last = groups[groups.length - 1];
+      if (last?.label === label) last.garments.push(g);
+      else groups.push({ label, garments: [g] });
+    }
+    return {
+      pageTitle: i18n.t('lang.PACKING_LIST'),
+      from,
+      to,
+      groups,
+      garmentCount: garments.length,
+      outfitCount,
+      dayCount,
+    };
   }
 
   @Post()

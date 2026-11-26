@@ -77,6 +77,13 @@ Note, these screenshots are taken of the web application viewed as an installed 
 - **Outfit Scheduling** - schedule out multiple outfits for given days through the week and get a view of what you've worn
 - **Weather Forecasting** - see weather forecasts while scheduling outfits for your important upcoming days
 - **Image Background Removal** - Images automatically have their backgrounds removed and optimized WebP upon upload
+- **Wear stats & cost per wear** - times worn, last worn, cost per wear, and a stats page with your most worn and neglected clothes
+- **Laundry tracking** - garments go into the laundry when you mark an outfit worn; empty the basket in one tap
+- **Tags, price & filters** - tag garments, record prices, filter by tag, laundry, or "not worn in 90+ days"
+- **Outfit shuffle** - a random outfit from your clean clothes
+- **Packing list** - every garment scheduled in a date range, with a checklist
+- **Automatic color** - the main color is detected from the photo when you add one
+- **Export / import** - download your whole wardrobe (data + photos) as a zip, and import it on any instance
 - **Offline-ready PWA** - install to home screen, works without internet
 - **Optional auth** - run open for personal use or enable JWT accounts for multi-user
 - **S3 or local storage** - local disk by default, swap to any S3-compatible provider
@@ -157,6 +164,8 @@ npm run start:prod
 | `DISABLE_REGISTRATION`             | Disallows user sign ups when true              | `false`        | `true`                                                                                    |
 | `PWA_ENABLED`                      | Enable service worker and PWA install prompt   | `false`        | `true`                                                                                    |
 | `SUPPORTER_PROMPT_ENABLED`         | Show the "support the project" nudge modal     | `true`         | `false`                                                                                   |
+| `WEATHER_ENABLED`                  | Set `false` to disable weather (fully offline) | `true`         | `false`                                                                                   |
+| `CURRENCY`                         | ISO 4217 currency for garment prices           | `EUR`          | `USD`                                                                                     |
 | `WEATHER_CACHE_TTL_MS`             | How long Open-Meteo forecasts are cached (ms)  | `1800000`      | `3600000`                                                                                 |
 | `ACCESS_TOKEN_SECRET`              | JWT signing secret - **change for production** | `ChangeMe!`    | `u9n8c2y847rfctb23468tcb689f243`                                                          |
 | `DATABASE_TYPE`                    | `sqlite` or `postgres`                         | `sqlite`       | `postgres`                                                                                |

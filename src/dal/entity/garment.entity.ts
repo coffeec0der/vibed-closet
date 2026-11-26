@@ -48,6 +48,18 @@ export class Garment extends ShareableId {
   @Property({ nullable: true, columnType: 'text' })
   public washingDetails?: string;
 
+  /** Purchase price in the instance's configured currency. */
+  @Property({ type: 'double', nullable: true })
+  public price?: number;
+
+  /** Comma-separated free-form tags (e.g. "summer,work"). */
+  @Property({ nullable: true, columnType: 'text' })
+  public tags?: string;
+
+  /** True while the garment is dirty / waiting to be washed. */
+  @Property({ default: false })
+  public inLaundry = false;
+
   @OneToOne({
     entity: () => File,
     nullable: true,

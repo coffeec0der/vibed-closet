@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { OutfitCalendar } from '../dal/entity/outfit-calendar.entity';
 import { Outfit } from '../dal/entity/outfit.entity';
+import { Garment } from '../dal/entity/garment.entity';
 import { User } from '../dal/entity/user.entity';
 import { CreateCalendarEntryDto } from './dto/create-calendar-entry.dto';
 import { CalendarDay } from './view-models/calendar-day.view-model';
@@ -137,9 +138,59 @@ export class CalendarService {
    */
   async toggleWorn(id: number, userId?: number): Promise<OutfitCalendar> {
     const entry = await this.findOneOwned(id, userId);
-    entry.wornAt = entry.wornAt == null ? new Date() : undefined;
+    const markingWorn = entry.wornAt == null;
+    entry.wornAt = markingWorn ? new Date() : undefined;
+    if (markingWorn) {
+      // Worn clothes go in the laundry basket. Unmarking deliberately does
+      // not flip them back: they may have been washed or worn elsewhere since.
+      const em = this.calendarRepository.getEntityManager();
+      await em.populate(entry, ['outfit.garments']);
+      for (const garment of entry.outfit.unwrap().garments.getItems()) {
+        garment.inLaundry = true;
+      }
+    }
     await this.calendarRepository.getEntityManager().flush();
     return entry;
+  }
+
+  /**
+   * Unique garments from every outfit scheduled between `from` and `to`
+   * (inclusive, by calendar day), grouped by category. Used for packing lists.
+   */
+  async packingList(
+    from: Date,
+    to: Date,
+    userId?: number,
+  ): Promise<{
+    garments: Garment[];
+    outfitCount: number;
+    dayCount: number;
+  }> {
+    const ownerFilter =
+      userId != null ? { owner: { id: userId } } : { owner: null };
+    const end = new Date(to);
+    end.setUTCDate(end.getUTCDate() + 1);
+    const entries = await this.calendarRepository.find(
+      { ...ownerFilter, date: { $gte: from, $lt: end } },
+      {
+        populate: ['outfit', 'outfit.garments', 'outfit.garments.photo'],
+        orderBy: { date: 'ASC' },
+      },
+    );
+    const byId = new Map<number, Garment>();
+    const days = new Set<string>();
+    for (const entry of entries) {
+      days.add(new Date(entry.date).toISOString().slice(0, 10));
+      for (const g of entry.outfit.unwrap().garments.getItems()) {
+        byId.set(g.id, g);
+      }
+    }
+    const garments = [...byId.values()].sort(
+      (a, b) =>
+        a.category.localeCompare(b.category) ||
+        (a.name ?? '').localeCompare(b.name ?? ''),
+    );
+    return { garments, outfitCount: entries.length, dayCount: days.size };
   }
 
   /** Returns outfits the user may add to the calendar (respects auth scoping). */

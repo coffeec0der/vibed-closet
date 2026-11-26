@@ -187,6 +187,22 @@ async function bootstrap() {
     const d = date instanceof Date ? date : new Date(date);
     return d.toISOString().split('T')[0];
   });
+  hbs.registerHelper(
+    'money',
+    function (value: number | null | undefined, options: HelperOptions) {
+      if (value == null || !Number.isFinite(Number(value))) return '';
+      const root = options?.data?.root ?? {};
+      const currency = root.currency || process.env.CURRENCY || 'EUR';
+      try {
+        return new Intl.NumberFormat(root.locale || 'en', {
+          style: 'currency',
+          currency,
+        }).format(Number(value));
+      } catch {
+        return `${Number(value).toFixed(2)} ${currency}`;
+      }
+    },
+  );
   hbs.registerHelper('uri', (str: string) =>
     encodeURIComponent(String(str ?? '')),
   );

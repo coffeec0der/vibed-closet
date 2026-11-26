@@ -49,6 +49,9 @@ export class ViewContextService {
       authEnabled: this.configService.get<boolean>('AUTH_ENABLED'),
       signupsDisabled: this.configService.get<boolean>('DISABLE_REGISTRATION'),
       pwaEnabled: this.configService.get<boolean>('PWA_ENABLED'),
+      weatherEnabled:
+        this.configService.get<boolean>('WEATHER_ENABLED') !== false,
+      currency: this.configService.get<string>('CURRENCY') ?? 'EUR',
       showSupporterPrompt:
         this.configService.get<boolean>('SUPPORTER_PROMPT_ENABLED') &&
         path !== '/' &&

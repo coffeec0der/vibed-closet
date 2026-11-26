@@ -1,0 +1,47 @@
+{{>navbar}}
+
+<main class="p-4 pt-20 pb-24 max-w-lg mx-auto">
+  <div class="flex items-center justify-between mb-2 px-2">
+    <h1 class="text-2xl font-bold">🧺 {{t 'lang.LAUNDRY'}}</h1>
+    {{#if garments.length}}
+    <form method="post" action="/laundry/done">
+      <button id="laundry-done" type="submit" class="btn btn-primary btn-sm">✨ {{t 'lang.LAUNDRY_DONE'}}</button>
+    </form>
+    {{/if}}
+  </div>
+  <p class="text-sm text-base-content/60 mb-4 px-2">{{t 'lang.LAUNDRY_HINT'}}</p>
+
+  {{#if garments.length}}
+  <p class="text-sm text-base-content/60 mb-2 px-2" id="laundry-count">{{garments.length}} {{t 'lang.RESULTS'}}</p>
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body p-3 divide-y divide-base-300">
+      {{#each garments}}
+      <div class="flex items-center gap-3 py-2 laundry-item">
+        <a href="/wardrobe/{{this.garment.id}}" class="flex items-center gap-3 flex-1 min-w-0">
+          {{#if this.garment.photo}}
+          <img src="/file/nobg/{{this.garment.photo.fileName}}" alt="" class="size-12 rounded object-cover bg-base-200" />
+          {{else}}
+          <div class="size-12 rounded bg-base-200"></div>
+          {{/if}}
+          <div class="min-w-0">
+            <p class="text-sm font-medium truncate">{{this.garment.name}}</p>
+            <p class="text-xs text-base-content/60 capitalize">{{this.categoryLabel}}{{#if this.garment.washingDetails}} · {{this.garment.washingDetails}}{{/if}}</p>
+          </div>
+        </a>
+        <form method="post" action="/laundry/{{this.garment.id}}/toggle">
+          <input type="hidden" name="returnTo" value="/laundry" />
+          <button type="submit" class="btn btn-ghost btn-sm" title="{{t 'lang.MARK_CLEAN'}}">✨</button>
+        </form>
+      </div>
+      {{/each}}
+    </div>
+  </div>
+  {{else}}
+  <div class="flex flex-col items-center gap-3 pt-16 text-base-content/50 text-center" id="laundry-empty">
+    <span class="text-5xl">✨</span>
+    <p>{{t 'lang.LAUNDRY_EMPTY'}}</p>
+  </div>
+  {{/if}}
+</main>
+
+{{>dock}}

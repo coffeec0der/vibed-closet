@@ -51,19 +51,24 @@ export class OutfitController {
     @I18n() i18n: I18nContext,
     @Query('scheduleDate') scheduleDate?: string,
     @Query('returnTo') returnTo?: string,
+    @Query('shuffle') shuffle?: string,
   ) {
     const garments = await this.garmentService.findAll(this.userId(req));
-    const categoryRows = this.outfitService.buildCategoryRows(
+    const defaultRows = this.outfitService.buildCategoryRows(
       garments,
       [],
       i18n,
     );
+    const shuffled = shuffle === '1';
     return {
       outfit: null,
       scheduleDate: scheduleDate || null,
       returnTo: returnTo || '/outfits',
-      categoryRows,
-      allCategoryRows: categoryRows,
+      shuffled,
+      categoryRows: shuffled
+        ? this.outfitService.buildShuffledRows(garments, i18n)
+        : defaultRows,
+      allCategoryRows: defaultRows,
     };
   }
 

@@ -10,5 +10,7 @@ export interface UpdateGarmentDto {
   notes?: string;
   washingDetails?: string;
   dateAquired?: string;
+  price?: string | number;
+  tags?: string | string[];
   files?: AsyncIterableIterator<MultipartFile>;
 }

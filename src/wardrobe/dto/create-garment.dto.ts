@@ -8,5 +8,7 @@ export interface CreateGarmentDto {
   notes?: string;
   washingDetails?: string;
   dateAquired?: string;
+  price?: string | number;
+  tags?: string | string[];
   files?: AsyncIterableIterator<MultipartFile>;
 }

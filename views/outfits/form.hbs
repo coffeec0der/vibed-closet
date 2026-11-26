@@ -21,10 +21,19 @@
         />
       </svg>
     </a>
-    <h1 class="text-2xl font-bold">
+    <h1 class="text-2xl font-bold flex-1">
       {{#if outfit}}{{t 'lang.EDIT_OUTFIT'}}{{else}}{{t
       'lang.BUILD_OUTFIT_TITLE'}}{{/if}}
     </h1>
+    {{#unless outfit}}{{#if categoryRows.length}}
+    <a
+      id="shuffle-outfit"
+      href="/outfits/new?shuffle=1{{#if scheduleDate}}&scheduleDate={{scheduleDate}}{{/if}}{{#if returnTo}}&returnTo={{uri returnTo}}{{/if}}"
+      class="btn btn-secondary btn-sm"
+      title="{{t 'lang.SHUFFLE_HINT'}}"
+      >🎲 {{t 'lang.SHUFFLE'}}</a
+    >
+    {{/if}}{{/unless}}
   </div>
 
   {{#if categoryRows.length}}

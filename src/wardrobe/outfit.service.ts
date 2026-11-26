@@ -205,6 +205,56 @@ export class OutfitService {
     });
   }
 
+  /**
+   * Builds outfit-builder rows with a random clean garment picked for each
+   * category. Garments in the laundry are skipped (a category whose garments
+   * are all dirty is left empty). A dress replaces tops + bottoms, chosen in
+   * proportion to how many dresses vs. tops are available.
+   */
+  buildShuffledRows(
+    garments: Garment[],
+    i18n: I18nContext,
+    rng: () => number = Math.random,
+  ) {
+    const grouped = new Map<string, Garment[]>();
+    for (const g of garments) {
+      if (!grouped.has(g.category)) grouped.set(g.category, []);
+      grouped.get(g.category)!.push(g);
+    }
+    const clean = (cat: string) =>
+      (grouped.get(cat) ?? []).filter((g) => !g.inLaundry);
+
+    const DRESSES = GarmentCategory.DRESSES as string;
+    const TOPS = GarmentCategory.TOPS as string;
+    const BOTTOMS = GarmentCategory.BOTTOMS as string;
+    const skip = new Set<string>();
+    const dressCount = clean(DRESSES).length;
+    const topCount = clean(TOPS).length;
+    if (dressCount && (topCount || clean(BOTTOMS).length)) {
+      const wearDress =
+        rng() < dressCount / (dressCount + Math.max(topCount, 1));
+      if (wearDress) {
+        skip.add(TOPS);
+        skip.add(BOTTOMS);
+      } else {
+        skip.add(DRESSES);
+      }
+    }
+
+    const enumOrder = Object.values(GarmentCategory) as string[];
+    const orderedKeys = [
+      ...enumOrder.filter((c) => grouped.has(c)),
+      ...[...grouped.keys()].filter((c) => !enumOrder.includes(c)).sort(),
+    ];
+    return orderedKeys.map((cat) => {
+      const items = grouped.get(cat)!;
+      const candidates = skip.has(cat) ? [] : clean(cat);
+      if (!candidates.length) return this.buildRow(cat, items, 0, i18n);
+      const pick = candidates[Math.floor(rng() * candidates.length)];
+      return this.buildRow(cat, items, items.indexOf(pick) + 1, i18n);
+    });
+  }
+
   buildRow(category: string, items: Garment[], idx: number, i18n: I18nContext) {
     const count = items.length;
     const sel = idx > 0 ? (items[idx - 1] ?? null) : null;

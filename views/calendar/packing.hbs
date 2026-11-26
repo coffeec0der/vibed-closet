@@ -1,0 +1,89 @@
+{{>navbar}}
+
+<main class="p-4 pt-20 pb-24 max-w-lg mx-auto">
+  <div class="flex items-center gap-3 mb-4">
+    <a href="/calendar?week={{from}}" class="btn btn-ghost btn-sm btn-circle" aria-label="{{t 'lang.CALENDAR'}}">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-4">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+      </svg>
+    </a>
+    <h1 class="text-2xl font-bold flex-1">🧳 {{t 'lang.PACKING_LIST'}}</h1>
+  </div>
+
+  <form method="get" action="/calendar/packing" class="flex flex-wrap items-end gap-2 mb-4">
+    <label class="form-control flex-1 min-w-32">
+      <span class="label-text text-xs mb-1">{{t 'lang.FROM'}}</span>
+      <input type="date" name="from" value="{{from}}" class="input input-bordered input-sm w-full" required />
+    </label>
+    <label class="form-control flex-1 min-w-32">
+      <span class="label-text text-xs mb-1">{{t 'lang.TO'}}</span>
+      <input type="date" name="to" value="{{to}}" class="input input-bordered input-sm w-full" required />
+    </label>
+    <button type="submit" class="btn btn-primary btn-sm">{{t 'lang.APPLY_FILTERS'}}</button>
+  </form>
+
+  {{#if garmentCount}}
+  <p class="text-sm text-base-content/60 mb-4" id="packing-summary">
+    {{garmentCount}} {{t 'lang.PACKING_ITEMS'}} · {{outfitCount}} {{t 'lang.OUTFITS'}} · {{dayCount}} {{t 'lang.PACKING_DAYS'}}
+  </p>
+
+  <div id="packing-list" class="flex flex-col gap-4" data-storage-key="lc_packing_{{from}}_{{to}}">
+    {{#each groups}}
+    <section class="card bg-base-100 shadow-sm">
+      <div class="card-body p-3 gap-2">
+        <h2 class="font-semibold text-sm capitalize text-base-content/70">{{this.label}}</h2>
+        {{#each this.garments}}
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" class="checkbox checkbox-sm packing-check" value="{{this.id}}" />
+          {{#if this.photo}}
+          <img src="/file/nobg/{{this.photo.fileName}}" alt="" class="size-10 rounded object-cover bg-base-200" />
+          {{else}}
+          <div class="size-10 rounded bg-base-200"></div>
+          {{/if}}
+          <span class="text-sm flex-1 packing-name">{{this.name}}</span>
+        </label>
+        {{/each}}
+      </div>
+    </section>
+    {{/each}}
+  </div>
+  <button type="button" id="packing-reset" class="btn btn-ghost btn-xs mt-4">{{t 'lang.PACKING_RESET'}}</button>
+
+  <script>
+    (function () {
+      var list = document.getElementById('packing-list');
+      if (!list) return;
+      var key = list.dataset.storageKey;
+      var checked = {};
+      try { checked = JSON.parse(localStorage.getItem(key) || '{}'); } catch (_) {}
+      var boxes = list.querySelectorAll('.packing-check');
+      function paint(box) {
+        var name = box.closest('label').querySelector('.packing-name');
+        name.classList.toggle('line-through', box.checked);
+        name.classList.toggle('opacity-50', box.checked);
+      }
+      boxes.forEach(function (box) {
+        box.checked = !!checked[box.value];
+        paint(box);
+        box.addEventListener('change', function () {
+          checked[box.value] = box.checked;
+          try { localStorage.setItem(key, JSON.stringify(checked)); } catch (_) {}
+          paint(box);
+        });
+      });
+      document.getElementById('packing-reset').addEventListener('click', function () {
+        checked = {};
+        try { localStorage.removeItem(key); } catch (_) {}
+        boxes.forEach(function (box) { box.checked = false; paint(box); });
+      });
+    })();
+  </script>
+  {{else}}
+  <div class="flex flex-col items-center gap-3 pt-16 text-base-content/50 text-center">
+    <p>{{t 'lang.PACKING_EMPTY'}}</p>
+    <a href="/calendar?week={{from}}" class="btn btn-primary btn-sm">{{t 'lang.CALENDAR'}}</a>
+  </div>
+  {{/if}}
+</main>
+
+{{>dock}}

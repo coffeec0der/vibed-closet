@@ -18,6 +18,9 @@ import { UpdateGarmentDto } from './dto/update-garment.dto';
 import { SearchGarmentDto } from './dto/search-garment.dto';
 import { GarmentCategory } from './garment-category.enum';
 import { WardrobeShareService } from '../wardrobe-share/wardrobe-share.service';
+import { Readable } from 'node:stream';
+import { detectDominantColor } from './dominant-color.util';
+import { GarmentColor } from './garment-color.enum';
 
 const CANONICAL_SIZES = [
   'XX-Small',
@@ -64,6 +67,8 @@ export class GarmentService {
       ...(dto.color ? { color: dto.color } : {}),
       ...(normalizedSize ? { size: normalizedSize } : {}),
       ...(dto.archived !== 'true' ? { archived: false } : {}),
+      ...(dto.laundry === 'true' ? { inLaundry: true } : {}),
+      ...(dto.tag ? { tags: { $like: `%${dto.tag}%` } } : {}),
       ...(dto.keyword
         ? {
             $or: [
@@ -75,23 +80,63 @@ export class GarmentService {
         : {}),
     };
 
+    let ownerCondition: FilterQuery<Garment>;
     if (userId != null) {
-      if (viewOwner != null && viewOwner !== userId) {
-        return this.garmentRepository.find(
-          { owner: { id: viewOwner }, ...searchConditions },
-          { populate: ['photo'], orderBy: { id: 'DESC' } },
-        );
-      }
-      return this.garmentRepository.find(
-        { owner: { id: userId }, ...searchConditions },
-        { populate: ['photo'], orderBy: { id: 'DESC' } },
-      );
+      ownerCondition =
+        viewOwner != null && viewOwner !== userId
+          ? { owner: { id: viewOwner } }
+          : { owner: { id: userId } };
+    } else {
+      // AUTH_ENABLED=false: only return garments that belong to no user
+      ownerCondition = { owner: null };
     }
-    // AUTH_ENABLED=false: only return garments that belong to no user
-    return this.garmentRepository.find(
-      { owner: null, ...searchConditions },
+    const garments = await this.garmentRepository.find(
+      { ...ownerCondition, ...searchConditions },
       { populate: ['photo'], orderBy: { id: 'DESC' } },
     );
+    if (!dto.tag) return garments;
+    // LIKE narrows the query; this enforces an exact tag match ("work" must
+    // not match "workout").
+    const wanted = dto.tag.trim().toLowerCase();
+    return garments.filter((g) =>
+      GarmentService.splitTags(g.tags).includes(wanted),
+    );
+  }
+
+  /** Splits a stored comma-separated tag string into normalized tags. */
+  static splitTags(tags?: string | null): string[] {
+    if (!tags) return [];
+    return tags
+      .split(',')
+      .map((t) => t.trim().toLowerCase())
+      .filter(Boolean);
+  }
+
+  /** Normalizes free-form tag input into a stored comma-separated string. */
+  static normalizeTags(input?: string | string[]): string | undefined {
+    if (input == null) return undefined;
+    const raw = Array.isArray(input) ? input.join(',') : input;
+    const tags = [...new Set(GarmentService.splitTags(raw))];
+    return tags.length ? tags.join(',') : undefined;
+  }
+
+  /** Parses a price form value; accepts "12.50", "12,50" and "€ 12". */
+  static parsePrice(input?: string | number | null): number | undefined {
+    if (input == null || input === '') return undefined;
+    if (typeof input === 'number') {
+      return Number.isFinite(input) && input >= 0 ? input : undefined;
+    }
+    let cleaned = input.replace(/[^\d.,-]/g, '');
+    // Whichever of '.' / ',' comes last is the decimal separator; the other
+    // one is a thousands separator ("1.234,56" and "1,234.56" -> 1234.56).
+    const decimalSep =
+      cleaned.lastIndexOf(',') > cleaned.lastIndexOf('.') ? ',' : '.';
+    const thousandsSep = decimalSep === ',' ? '.' : ',';
+    cleaned = cleaned.split(thousandsSep).join('').replace(decimalSep, '.');
+    const value = parseFloat(cleaned);
+    return Number.isFinite(value) && value >= 0
+      ? Math.round(value * 100) / 100
+      : undefined;
   }
 
   async findOne(
@@ -147,6 +192,8 @@ export class GarmentService {
       notes: dto.notes,
       washingDetails: dto.washingDetails,
       dateAquired: dto.dateAquired ? new Date(dto.dateAquired) : undefined,
+      price: GarmentService.parsePrice(dto.price),
+      tags: GarmentService.normalizeTags(dto.tags),
       photo: photo ?? undefined,
     });
 
@@ -168,6 +215,8 @@ export class GarmentService {
       color?: string;
       size?: string;
       notes?: string;
+      price?: string | number;
+      tags?: string | string[];
     },
     userId?: number,
   ): Promise<Garment> {
@@ -201,6 +250,9 @@ export class GarmentService {
       color: dto.color as any,
       size: this.normalizeSize(dto.size),
       notes: dto.notes,
+      washingDetails: source.washingDetails,
+      price: GarmentService.parsePrice(dto.price) ?? source.price,
+      tags: GarmentService.normalizeTags(dto.tags) ?? source.tags,
       photo: photo ?? undefined,
     });
 
@@ -217,6 +269,7 @@ export class GarmentService {
     brands: string[];
     sizes: string[];
     categories: string[];
+    tags: string[];
   }> {
     const where = userId != null ? { owner: { id: userId } } : { owner: null };
     const garments = await this.garmentRepository.find(where);
@@ -240,7 +293,11 @@ export class GarmentService {
       ...new Set(garments.map((g) => g.category).filter(Boolean)),
     ].sort();
 
-    return { brands, sizes, categories };
+    const tags = [
+      ...new Set(garments.flatMap((g) => GarmentService.splitTags(g.tags))),
+    ].sort();
+
+    return { brands, sizes, categories, tags };
   }
 
   async update(
@@ -294,6 +351,9 @@ export class GarmentService {
     if (photo) {
       await this.deleteOldPhoto(garment);
       garment.photo = photo as any;
+      if (!garment.color) {
+        garment.color = await this.detectPhotoColor(photo.fileName);
+      }
     }
 
     garment.name = dto.name ?? garment.name;
@@ -307,9 +367,34 @@ export class GarmentService {
       garment.dateAquired = dto.dateAquired
         ? new Date(dto.dateAquired)
         : undefined;
+    if ('price' in dto) garment.price = GarmentService.parsePrice(dto.price);
+    if ('tags' in dto) garment.tags = GarmentService.normalizeTags(dto.tags);
 
     await this.garmentRepository.getEntityManager().flush();
     return garment;
+  }
+
+  /**
+   * Best-effort dominant color for a stored photo. Prefers the background-
+   * removed variant (transparent pixels are ignored). Never throws.
+   */
+  private async detectPhotoColor(
+    photoFileName: string,
+  ): Promise<GarmentColor | undefined> {
+    for (const name of [
+      this.fileService.nobgFileName(photoFileName),
+      photoFileName,
+    ]) {
+      try {
+        const stream = await this.fileService.get(name);
+        if (!stream) continue;
+        const color = await detectDominantColor(await streamToBuffer(stream));
+        if (color) return color;
+      } catch {
+        // variant missing or unreadable - try the next one
+      }
+    }
+    return undefined;
   }
 
   private async deleteOldPhoto(garment: Garment) {
@@ -360,6 +445,22 @@ export class GarmentService {
     return garment;
   }
 
+  async toggleLaundry(id: number, userId?: number): Promise<Garment> {
+    const garment = await this.findOne(id, userId);
+    garment.inLaundry = !garment.inLaundry;
+    await this.garmentRepository.getEntityManager().flush();
+    return garment;
+  }
+
+  /** Marks every garment of the owner as clean. Returns how many changed. */
+  async markAllClean(userId?: number): Promise<number> {
+    const where: FilterQuery<Garment> =
+      userId != null
+        ? { owner: { id: userId }, inLaundry: true }
+        : { owner: null, inLaundry: true };
+    return this.garmentRepository.nativeUpdate(where, { inLaundry: false });
+  }
+
   private normalizeSize(input?: string): string | undefined {
     if (!input) return undefined;
     const s = input
@@ -379,4 +480,12 @@ export class GarmentService {
     if (['xxs', '2xs', '2xsmall', 'xxsmall'].includes(s)) return 'XX-Small';
     return input.trim();
   }
+}
+
+async function streamToBuffer(stream: Readable): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) {
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+  }
+  return Buffer.concat(chunks);
 }

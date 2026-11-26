@@ -22,6 +22,9 @@
       </svg>
     </a>
     <h1 class="text-2xl font-bold flex-1">{{garment.name}}</h1>
+    {{#if garment.inLaundry}}
+    <span id="laundry-badge" class="badge badge-warning gap-1">🧺 {{t 'lang.IN_LAUNDRY'}}</span>
+    {{/if}}
   </div>
 
   {{#if garment.photo}}
@@ -254,6 +257,20 @@
         <span class="text-base-content/60 text-sm">{{t 'lang.DATE_AQUIRED'}}</span>
         <span class="font-medium">{{formatDate garment.dateAquired}}</span>
       </div>
+      {{/if}} {{#if garment.price}}
+      <div class="flex justify-between">
+        <span class="text-base-content/60 text-sm">{{t 'lang.PRICE'}}</span>
+        <span class="font-medium">{{money garment.price}}</span>
+      </div>
+      {{/if}} {{#if tags.length}}
+      <div class="flex justify-between gap-4">
+        <span class="text-base-content/60 text-sm">{{t 'lang.TAGS'}}</span>
+        <span class="flex flex-wrap gap-1 justify-end">
+          {{#each tags}}
+          <a href="/wardrobe?tag={{uri this}}{{#if ../viewOwner}}&ownerId={{../viewOwner}}{{/if}}" class="badge badge-outline badge-sm no-underline">#{{this}}</a>
+          {{/each}}
+        </span>
+      </div>
       {{/if}} {{#if garment.notes}}
       <div class="flex flex-col gap-1">
         <span class="text-base-content/60 text-sm">{{t 'lang.NOTES'}}</span>
@@ -262,6 +279,34 @@
       {{/if}}
     </div>
   </div>
+
+  {{!-- Wear stats --}}
+  <div id="wear-stats" class="stats stats-horizontal shadow-sm w-full mb-4 bg-base-100">
+    <div class="stat px-4 py-3">
+      <div class="stat-title text-xs">{{t 'lang.TIMES_WORN'}}</div>
+      <div class="stat-value text-2xl" id="times-worn">{{stats.timesWorn}}</div>
+    </div>
+    <div class="stat px-4 py-3">
+      <div class="stat-title text-xs">{{t 'lang.LAST_WORN'}}</div>
+      <div class="stat-value text-base mt-1">{{#if stats.lastWorn}}{{formatDate stats.lastWorn}}{{else}}{{t 'lang.NEVER'}}{{/if}}</div>
+      {{#if stats.lastWorn}}<div class="stat-desc">{{#ifEquals stats.daysSinceWorn 0}}{{t 'lang.WORN_TODAY'}}{{else}}{{stats.daysSinceWorn}} {{t 'lang.DAYS_AGO'}}{{/ifEquals}}</div>{{/if}}
+    </div>
+    {{#if stats.costPerWear}}
+    <div class="stat px-4 py-3">
+      <div class="stat-title text-xs">{{t 'lang.COST_PER_WEAR'}}</div>
+      <div class="stat-value text-base mt-1" id="cost-per-wear">{{money stats.costPerWear}}</div>
+    </div>
+    {{/if}}
+  </div>
+  {{!-- Laundry --}} {{#if canDelete}}
+  <form method="post" action="/laundry/{{garment.id}}/toggle" class="mb-6">
+    <input type="hidden" name="returnTo" value="/wardrobe/{{garment.id}}" />
+    <button id="laundry-toggle" type="submit" class="btn btn-outline btn-sm w-full">
+      {{#if garment.inLaundry}}✨ {{t 'lang.MARK_CLEAN'}}{{else}}🧺 {{t 'lang.MARK_DIRTY'}}{{/if}}
+    </button>
+  </form>
+  {{/if}}
+
   {{!-- Edit --}} {{#if canEdit}}
   <div class="flex gap-2 mb-6">
     <a

@@ -90,6 +90,13 @@
           </tbody>
         </table>
       </div>
+      <div class="px-3 pb-3">
+        <a
+          href="/calendar/packing?from={{weekParam}}"
+          class="btn btn-outline btn-xs w-full"
+          >🧳 {{t 'lang.PACKING_LIST_THIS_WEEK'}}</a
+        >
+      </div>
     </div>
 
     {{!-- Slots 2–8: Day columns (Sun → Sat) ─────────────────────────── --}}
@@ -225,6 +232,7 @@ wipe it --}}
 
 {{>dock}}
 
+{{#if weatherEnabled}}
 <script>
   (function () {
     function run() {
@@ -295,3 +303,4 @@ wipe it --}}
     }
   })();
 </script>
+{{/if}}

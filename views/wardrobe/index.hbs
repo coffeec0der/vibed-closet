@@ -3,9 +3,15 @@
 <main class="p-4 pt-20 pb-40">
   <div class="flex items-center justify-between mb-6 px-2">
     <h1 class="text-2xl font-bold">{{t 'lang.WARDROBE'}}</h1>
-    {{#if canEdit}}
-    <a href="/wardrobe/new{{#if viewOwner}}?ownerId={{viewOwner}}{{/if}}" class="btn btn-primary btn-sm">+ {{t 'lang.NEW_GARMENT'}}</a>
-    {{/if}}
+    <div class="flex gap-2">
+      {{#unless viewOwner}}
+      <a href="/stats" class="btn btn-ghost btn-sm" id="stats-link" title="{{t 'lang.STATS'}}">📊<span class="hidden sm:inline">{{t 'lang.STATS'}}</span></a>
+      <a href="/laundry" class="btn btn-ghost btn-sm" id="laundry-link" title="{{t 'lang.LAUNDRY'}}">🧺<span class="hidden sm:inline">{{t 'lang.LAUNDRY'}}</span></a>
+      {{/unless}}
+      {{#if canEdit}}
+      <a href="/wardrobe/new{{#if viewOwner}}?ownerId={{viewOwner}}{{/if}}" class="btn btn-primary btn-sm">+ {{t 'lang.NEW_GARMENT'}}</a>
+      {{/if}}
+    </div>
   </div>
 
   {{!-- Shared wardrobe switcher --}}
@@ -26,7 +32,8 @@
   <div class="flex flex-wrap gap-4 justify-center">
     {{#each garments}}
     <a href="/wardrobe/{{this.id}}{{#if ../viewOwner}}?ownerId={{../viewOwner}}{{/if}}" class="card bg-base-100 w-40 sm:w-44 shadow-sm hover:shadow-md transition-shadow cursor-pointer {{#if this.archived}}opacity-50{{/if}}">
-      <figure class="aspect-square bg-base-200">
+      <figure class="aspect-square bg-base-200 relative">
+        {{#if this.inLaundry}}<span class="absolute top-1 right-1 badge badge-warning badge-xs" title="{{t 'lang.IN_LAUNDRY'}}">🧺</span>{{/if}}
         {{#if this.photo}}
         <img src="/file/nobg/{{this.photo.fileName}}" alt="{{this.name}}" class="object-cover w-full h-full" />
         {{else}}
@@ -71,27 +78,45 @@
     </button>
 
     {{#if search.category}}
-    <a href="/wardrobe?keyword={{search.keyword}}&color={{search.color}}&size={{search.size}}{{#if viewOwner}}&ownerId={{viewOwner}}{{/if}}"
+    <a href="/wardrobe?keyword={{search.keyword}}&color={{search.color}}&size={{search.size}}&tag={{uri search.tag}}&laundry={{search.laundry}}&unworn={{search.unworn}}{{#if viewOwner}}&ownerId={{viewOwner}}{{/if}}"
       class="badge badge-primary badge-sm gap-1 cursor-pointer capitalize no-underline">
       {{search.category}} &times;
     </a>
     {{/if}}
     {{#if search.color}}
-    <a href="/wardrobe?keyword={{search.keyword}}&category={{search.category}}&size={{search.size}}{{#if viewOwner}}&ownerId={{viewOwner}}{{/if}}"
+    <a href="/wardrobe?keyword={{search.keyword}}&category={{search.category}}&size={{search.size}}&tag={{uri search.tag}}&laundry={{search.laundry}}&unworn={{search.unworn}}{{#if viewOwner}}&ownerId={{viewOwner}}{{/if}}"
       class="badge badge-secondary badge-sm gap-1 cursor-pointer capitalize no-underline">
       {{search.color}} &times;
     </a>
     {{/if}}
     {{#if search.size}}
-    <a href="/wardrobe?keyword={{search.keyword}}&category={{search.category}}&color={{search.color}}{{#if viewOwner}}&ownerId={{viewOwner}}{{/if}}"
+    <a href="/wardrobe?keyword={{search.keyword}}&category={{search.category}}&color={{search.color}}&tag={{uri search.tag}}&laundry={{search.laundry}}&unworn={{search.unworn}}{{#if viewOwner}}&ownerId={{viewOwner}}{{/if}}"
       class="badge badge-accent badge-sm gap-1 cursor-pointer no-underline">
       {{search.size}} &times;
     </a>
     {{/if}}
     {{#if search.archived}}
-    <a href="/wardrobe?keyword={{search.keyword}}&category={{search.category}}&color={{search.color}}&size={{search.size}}{{#if viewOwner}}&ownerId={{viewOwner}}{{/if}}"
+    <a href="/wardrobe?keyword={{search.keyword}}&category={{search.category}}&color={{search.color}}&size={{search.size}}&tag={{uri search.tag}}&laundry={{search.laundry}}&unworn={{search.unworn}}{{#if viewOwner}}&ownerId={{viewOwner}}{{/if}}"
       class="badge badge-warning badge-sm gap-1 cursor-pointer no-underline">
       {{t 'lang.ARCHIVED'}} &times;
+    </a>
+    {{/if}}
+    {{#if search.tag}}
+    <a href="/wardrobe?keyword={{search.keyword}}&category={{search.category}}&color={{search.color}}&size={{search.size}}&archived={{search.archived}}&laundry={{search.laundry}}&unworn={{search.unworn}}{{#if viewOwner}}&ownerId={{viewOwner}}{{/if}}"
+      class="badge badge-info badge-sm gap-1 cursor-pointer no-underline">
+      #{{search.tag}} &times;
+    </a>
+    {{/if}}
+    {{#if search.laundry}}
+    <a href="/wardrobe?keyword={{search.keyword}}&category={{search.category}}&color={{search.color}}&size={{search.size}}&archived={{search.archived}}&tag={{uri search.tag}}&unworn={{search.unworn}}{{#if viewOwner}}&ownerId={{viewOwner}}{{/if}}"
+      class="badge badge-warning badge-sm gap-1 cursor-pointer no-underline">
+      🧺 {{t 'lang.IN_LAUNDRY'}} &times;
+    </a>
+    {{/if}}
+    {{#if search.unworn}}
+    <a href="/wardrobe?keyword={{search.keyword}}&category={{search.category}}&color={{search.color}}&size={{search.size}}&archived={{search.archived}}&tag={{uri search.tag}}&laundry={{search.laundry}}{{#if viewOwner}}&ownerId={{viewOwner}}{{/if}}"
+      class="badge badge-error badge-sm gap-1 cursor-pointer no-underline">
+      {{t 'lang.UNWORN_FILTER_SHORT'}} {{search.unworn}}+ {{t 'lang.DAYS'}} &times;
     </a>
     {{/if}}
   </div>
@@ -102,6 +127,9 @@
     <input type="hidden" name="color" id="active-color" value="{{search.color}}">
     <input type="hidden" name="size" id="active-size" value="{{search.size}}">
     <input type="hidden" name="archived" id="active-archived" value="{{search.archived}}">
+    <input type="hidden" name="tag" id="active-tag" value="{{search.tag}}">
+    <input type="hidden" name="laundry" id="active-laundry" value="{{search.laundry}}">
+    <input type="hidden" name="unworn" id="active-unworn" value="{{search.unworn}}">
     {{#if viewOwner}}<input type="hidden" name="ownerId" value="{{viewOwner}}">{{/if}}
     <input
       type="text"
@@ -173,6 +201,37 @@
       </label>
     </div>
 
+    {{!-- Tags --}}
+    {{#if availableTags.length}}
+    <div class="mb-5">
+      <h4 class="font-medium text-sm text-base-content/60 uppercase tracking-wide mb-2">{{t 'lang.TAGS'}}</h4>
+      <div class="flex flex-wrap gap-2">
+        {{#each availableTags}}
+        <label class="cursor-pointer">
+          <input type="radio" name="modal-tag" value="{{this}}" class="hidden peer"
+            {{#ifEquals this ../search.tag}}checked{{/ifEquals}}>
+          <span class="badge badge-outline peer-checked:badge-info select-none">#{{this}}</span>
+        </label>
+        {{/each}}
+      </div>
+    </div>
+    {{/if}}
+
+    {{!-- Wear & laundry --}}
+    <div class="mb-5">
+      <h4 class="font-medium text-sm text-base-content/60 uppercase tracking-wide mb-2">{{t 'lang.WEAR_AND_LAUNDRY'}}</h4>
+      <label class="cursor-pointer flex items-center gap-2 mb-2">
+        <input type="checkbox" name="modal-unworn" value="90" class="checkbox checkbox-sm"
+          {{#if search.unworn}}checked{{/if}}>
+        <span class="text-sm">{{t 'lang.UNWORN_FILTER'}}</span>
+      </label>
+      <label class="cursor-pointer flex items-center gap-2">
+        <input type="checkbox" name="modal-laundry" value="true" class="checkbox checkbox-sm"
+          {{#if search.laundry}}checked{{/if}}>
+        <span class="text-sm">{{t 'lang.LAUNDRY_FILTER'}}</span>
+      </label>
+    </div>
+
     <div class="modal-action">
       <button type="button"
         class="btn btn-ghost btn-sm"
@@ -186,9 +245,12 @@
           for el in <input[name='modal-size']/>
             set el.checked to false
           end
-          for el in <input[name='modal-archived']/>
+          for el in <input[name='modal-archived'], input[name='modal-tag'], input[name='modal-unworn'], input[name='modal-laundry']/>
             set el.checked to false
           end
+          set #active-tag.value to ''
+          set #active-laundry.value to ''
+          set #active-unworn.value to ''
           set #active-category.value to ''
           set #active-color.value to ''
           set #active-size.value to ''
@@ -212,6 +274,18 @@
           set archived to ''
           get the first <input[name='modal-archived']:checked/>
           if it then set archived to 'true' end
+          set tag to ''
+          get the first <input[name='modal-tag']:checked/>
+          if it then set tag to it.value end
+          set unworn to ''
+          get the first <input[name='modal-unworn']:checked/>
+          if it then set unworn to it.value end
+          set laundry to ''
+          get the first <input[name='modal-laundry']:checked/>
+          if it then set laundry to 'true' end
+          set #active-tag.value to tag
+          set #active-unworn.value to unworn
+          set #active-laundry.value to laundry
           set #active-category.value to category
           set #active-color.value to color
           set #active-size.value to size

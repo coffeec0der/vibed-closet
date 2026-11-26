@@ -93,6 +93,39 @@
       />
     </div>
 
+    <div class="grid grid-cols-2 gap-4">
+      <div class="form-control">
+        <label class="label"><span class="label-text">{{t 'lang.PRICE'}} ({{currency}})</span></label>
+        <input
+          type="text"
+          inputmode="decimal"
+          name="price"
+          class="input input-bordered w-full"
+          value="{{#if garment.price}}{{garment.price}}{{/if}}"
+          placeholder="49.95"
+          autocomplete="off"
+        />
+      </div>
+      <div class="form-control">
+        <label class="label"><span class="label-text">{{t 'lang.TAGS'}}</span></label>
+        <input
+          type="text"
+          name="tags"
+          id="tags-input"
+          list="tag-suggestions"
+          class="input input-bordered w-full"
+          value="{{#if garment}}{{garment.tags}}{{/if}}"
+          placeholder="{{t 'lang.TAGS_PLACEHOLDER'}}"
+          autocomplete="off"
+        />
+        <datalist id="tag-suggestions">
+          {{#each availableTags}}
+          <option value="{{this}}"></option>
+          {{/each}}
+        </datalist>
+      </div>
+    </div>
+
     <div class="form-control">
       <label class="label"><span class="label-text">{{t 'lang.WASHING_DETAILS'}}</span></label>
       <textarea
@@ -137,5 +170,27 @@
     </div>
   </form>
 </main>
+<script>
+  // Tags are comma-separated; make datalist suggestions complete the tag
+  // currently being typed instead of replacing the whole field.
+  (function () {
+    var input = document.getElementById('tags-input');
+    var list = document.getElementById('tag-suggestions');
+    if (!input || !list) return;
+    var all = Array.prototype.map.call(list.options, function (o) { return o.value; });
+    input.addEventListener('input', function () {
+      var cut = input.value.lastIndexOf(',');
+      var prefix = cut === -1 ? '' : input.value.slice(0, cut + 1).replace(/\s*$/, ' ');
+      var used = input.value.split(',').map(function (t) { return t.trim().toLowerCase(); });
+      list.innerHTML = '';
+      all.forEach(function (tag) {
+        if (used.indexOf(tag) !== -1) return;
+        var opt = document.createElement('option');
+        opt.value = prefix + tag;
+        list.appendChild(opt);
+      });
+    });
+  })();
+</script>
 
 {{>dock}}

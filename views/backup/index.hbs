@@ -1,0 +1,40 @@
+{{>navbar}}
+
+<main class="p-4 pt-20 pb-24 max-w-lg mx-auto">
+  <h1 class="text-2xl font-bold mb-4 px-2">💾 {{t 'lang.BACKUP'}}</h1>
+
+  {{#if summary}}
+  <div class="alert alert-success mb-4 text-sm" id="import-success">
+    {{t 'lang.IMPORT_DONE'}}: {{summary.garments}} {{t 'lang.WARDROBE'}}, {{summary.outfits}} {{t 'lang.OUTFITS'}},
+    {{summary.calendar}} {{t 'lang.CALENDAR'}}, {{summary.photos}} {{t 'lang.PHOTOS'}}.
+  </div>
+  {{/if}}
+  {{#if error}}
+  <div class="alert alert-error mb-4 text-sm" id="import-error">{{t 'lang.IMPORT_FAILED'}}: {{error}}</div>
+  {{/if}}
+
+  <section class="card bg-base-100 shadow-sm mb-4">
+    <div class="card-body p-4 gap-3">
+      <h2 class="font-semibold">{{t 'lang.EXPORT_TITLE'}}</h2>
+      <p class="text-sm text-base-content/70">{{t 'lang.EXPORT_DESC'}}</p>
+      <a href="/backup/export" id="export-btn" hx-boost="false" class="btn btn-primary btn-sm self-start" download>⬇ {{t 'lang.EXPORT_BUTTON'}}</a>
+    </div>
+  </section>
+
+  <section class="card bg-base-100 shadow-sm">
+    <div class="card-body p-4 gap-3">
+      <h2 class="font-semibold">{{t 'lang.IMPORT_TITLE'}}</h2>
+      <p class="text-sm text-base-content/70">{{t 'lang.IMPORT_DESC'}}</p>
+      <form method="post" action="/backup/import" enctype="multipart/form-data" class="flex flex-col gap-2"
+        onsubmit="this.querySelector('button').classList.add('btn-disabled'); this.querySelector('.loading').classList.remove('hidden');">
+        <input type="file" name="file" id="import-file" accept=".zip,application/zip" class="file-input file-input-sm w-full" required />
+        <button type="submit" id="import-btn" class="btn btn-outline btn-sm self-start">
+          <span class="loading loading-spinner loading-xs hidden"></span>
+          ⬆ {{t 'lang.IMPORT_BUTTON'}}
+        </button>
+      </form>
+    </div>
+  </section>
+</main>
+
+{{>dock}}

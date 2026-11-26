@@ -1,0 +1,115 @@
+{{>navbar}}
+
+<main class="p-4 pt-20 pb-24 max-w-3xl mx-auto">
+  <h1 class="text-2xl font-bold mb-4 px-2">📊 {{t 'lang.STATS'}}</h1>
+
+  <div id="stats-totals" class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+    <div class="stat bg-base-100 rounded-box shadow-sm px-4 py-3">
+      <div class="stat-title text-xs">{{t 'lang.WARDROBE'}}</div>
+      <div class="stat-value text-2xl">{{totals.garments}}</div>
+      <div class="stat-desc">{{totals.outfits}} {{t 'lang.OUTFITS'}}</div>
+    </div>
+    <div class="stat bg-base-100 rounded-box shadow-sm px-4 py-3">
+      <div class="stat-title text-xs">{{t 'lang.TOTAL_WEARS'}}</div>
+      <div class="stat-value text-2xl">{{totals.wears}}</div>
+    </div>
+    <div class="stat bg-base-100 rounded-box shadow-sm px-4 py-3">
+      <div class="stat-title text-xs">{{t 'lang.WARDROBE_VALUE'}}</div>
+      <div class="stat-value text-2xl">{{money totals.wardrobeValue}}</div>
+      <div class="stat-desc">{{totals.pricedCount}}/{{totals.garments}} {{t 'lang.PRICED'}}</div>
+    </div>
+    <a href="/wardrobe?unworn={{unwornDays}}" class="stat bg-base-100 rounded-box shadow-sm px-4 py-3 hover:shadow-md">
+      <div class="stat-title text-xs">{{t 'lang.UNWORN_FILTER_SHORT'}} {{unwornDays}}+ {{t 'lang.DAYS'}}</div>
+      <div class="stat-value text-2xl {{#if totals.unworn}}text-error{{/if}}">{{totals.unworn}}</div>
+    </a>
+    <a href="/laundry" class="stat bg-base-100 rounded-box shadow-sm px-4 py-3 hover:shadow-md">
+      <div class="stat-title text-xs">{{t 'lang.LAUNDRY'}}</div>
+      <div class="stat-value text-2xl">{{totals.inLaundry}}</div>
+    </a>
+  </div>
+
+  {{#unless totals.wears}}
+  <div class="alert mb-6 text-sm">{{t 'lang.STATS_NO_WEARS_HINT'}}</div>
+  {{/unless}}
+
+  <div class="grid gap-4 sm:grid-cols-2">
+    {{#if mostWorn.length}}
+    <section class="card bg-base-100 shadow-sm" id="most-worn">
+      <div class="card-body p-4 gap-2">
+        <h2 class="font-semibold">{{t 'lang.MOST_WORN'}}</h2>
+        {{#each mostWorn}}
+        <a href="/wardrobe/{{this.id}}" class="flex items-center gap-3 hover:bg-base-200 rounded p-1 -m-1">
+          {{#if this.photo}}<img src="/file/nobg/{{this.photo}}" alt="" class="size-10 rounded object-cover bg-base-200" />{{else}}<div class="size-10 rounded bg-base-200"></div>{{/if}}
+          <span class="flex-1 text-sm truncate">{{this.name}}</span>
+          <span class="badge badge-ghost">{{this.timesWorn}}×</span>
+        </a>
+        {{/each}}
+      </div>
+    </section>
+    {{/if}}
+
+    {{#if bestValue.length}}
+    <section class="card bg-base-100 shadow-sm" id="best-value">
+      <div class="card-body p-4 gap-2">
+        <h2 class="font-semibold">{{t 'lang.BEST_COST_PER_WEAR'}}</h2>
+        {{#each bestValue}}
+        <a href="/wardrobe/{{this.id}}" class="flex items-center gap-3 hover:bg-base-200 rounded p-1 -m-1">
+          {{#if this.photo}}<img src="/file/nobg/{{this.photo}}" alt="" class="size-10 rounded object-cover bg-base-200" />{{else}}<div class="size-10 rounded bg-base-200"></div>{{/if}}
+          <span class="flex-1 text-sm truncate">{{this.name}}</span>
+          <span class="text-sm text-success font-medium">{{money this.costPerWear}}</span>
+        </a>
+        {{/each}}
+      </div>
+    </section>
+    {{/if}}
+
+    {{#if worstValue.length}}
+    <section class="card bg-base-100 shadow-sm" id="worst-value">
+      <div class="card-body p-4 gap-2">
+        <h2 class="font-semibold">{{t 'lang.WORST_COST_PER_WEAR'}}</h2>
+        {{#each worstValue}}
+        <a href="/wardrobe/{{this.id}}" class="flex items-center gap-3 hover:bg-base-200 rounded p-1 -m-1">
+          {{#if this.photo}}<img src="/file/nobg/{{this.photo}}" alt="" class="size-10 rounded object-cover bg-base-200" />{{else}}<div class="size-10 rounded bg-base-200"></div>{{/if}}
+          <span class="flex-1 text-sm truncate">{{this.name}}</span>
+          <span class="text-xs text-base-content/50">{{this.timesWorn}}×</span>
+          <span class="text-sm text-warning font-medium">{{money this.costPerWear}}</span>
+        </a>
+        {{/each}}
+      </div>
+    </section>
+    {{/if}}
+
+    {{#if unworn.length}}
+    <section class="card bg-base-100 shadow-sm" id="unworn-list">
+      <div class="card-body p-4 gap-2">
+        <h2 class="font-semibold">{{t 'lang.UNWORN_FILTER'}}</h2>
+        {{#each unworn}}
+        <a href="/wardrobe/{{this.id}}" class="flex items-center gap-3 hover:bg-base-200 rounded p-1 -m-1">
+          {{#if this.photo}}<img src="/file/nobg/{{this.photo}}" alt="" class="size-10 rounded object-cover bg-base-200" />{{else}}<div class="size-10 rounded bg-base-200"></div>{{/if}}
+          <span class="flex-1 text-sm truncate">{{this.name}}</span>
+          <span class="text-xs text-base-content/60">{{#if this.lastWorn}}{{#ifEquals this.daysSinceWorn 0}}{{t 'lang.WORN_TODAY'}}{{else}}{{this.daysSinceWorn}} {{t 'lang.DAYS_AGO'}}{{/ifEquals}}{{else}}{{t 'lang.NEVER'}}{{/if}}</span>
+        </a>
+        {{/each}}
+        <a href="/wardrobe?unworn={{unwornDays}}" class="btn btn-ghost btn-xs self-start">{{t 'lang.SEE_ALL'}} →</a>
+      </div>
+    </section>
+    {{/if}}
+
+    {{#if categories.length}}
+    <section class="card bg-base-100 shadow-sm" id="category-breakdown">
+      <div class="card-body p-4 gap-2">
+        <h2 class="font-semibold">{{t 'lang.BY_CATEGORY'}}</h2>
+        {{#each categories}}
+        <div class="flex items-center gap-2 text-sm">
+          <span class="w-24 truncate capitalize">{{this.label}}</span>
+          <div class="flex-1 h-2 rounded bg-base-200 overflow-hidden"><div class="h-full bg-primary" style="width: {{this.percent}}%"></div></div>
+          <span class="w-8 text-right tabular-nums">{{this.count}}</span>
+        </div>
+        {{/each}}
+      </div>
+    </section>
+    {{/if}}
+  </div>
+</main>
+
+{{>dock}}

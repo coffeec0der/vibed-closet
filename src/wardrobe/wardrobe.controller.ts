@@ -25,6 +25,7 @@ import { WardrobeShareService } from '../wardrobe-share/wardrobe-share.service';
 import { SharePermission } from '../dal/entity/wardrobe-share.entity';
 import type { SearchGarmentDto } from './dto/search-garment.dto';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { WearStatsService } from './wear-stats.service';
 
 @UseGuards(ConditionalAuthGuard)
 @Controller('wardrobe')
@@ -34,6 +35,7 @@ export class WardrobeController {
   constructor(
     private readonly garmentService: GarmentService,
     private readonly shareService: WardrobeShareService,
+    private readonly wearStatsService: WearStatsService,
   ) {}
 
   private userId(req: any): number | undefined {
@@ -78,10 +80,19 @@ export class WardrobeController {
       }
     }
 
-    const [garments, filters] = await Promise.all([
+    const unwornDays = parseInt(query.unworn ?? '', 10);
+    const [allGarments, filters, wearStats] = await Promise.all([
       this.garmentService.findAll(userId, query, viewOwner),
       this.garmentService.findAvailableFilters(viewOwner ?? userId),
+      this.wearStatsService.statsByGarment(viewOwner ?? userId),
     ]);
+    let garments = allGarments;
+    if (Number.isFinite(unwornDays) && unwornDays > 0) {
+      const annotated = this.wearStatsService.annotate(allGarments, wearStats);
+      garments = annotated
+        .filter((item) => this.wearStatsService.isUnworn(item, unwornDays))
+        .map((item) => item.garment);
+    }
     const availableCategories = filters.categories.map((value) => ({
       value,
       label: this.garmentService.resolveCategoryLabel(value, i18n),
@@ -91,6 +102,7 @@ export class WardrobeController {
       availableCategories,
       colors: Object.values(GarmentColor),
       availableSizes: filters.sizes,
+      availableTags: filters.tags,
       search: query,
       sharedWardrobes,
       viewOwner: viewOwner ?? null,
@@ -127,6 +139,7 @@ export class WardrobeController {
       colors: Object.values(GarmentColor),
       garment: null,
       viewOwner,
+      availableTags: filters.tags,
     };
   }
 
@@ -142,6 +155,8 @@ export class WardrobeController {
       notes?: string;
       washingDetails?: string;
       dateAquired?: string;
+      price?: string;
+      tags?: string;
     },
     @Req() req: FastifyRequest,
     @Res() reply: FastifyReply,
@@ -173,6 +188,8 @@ export class WardrobeController {
         notes: body.notes,
         washingDetails: body.washingDetails,
         dateAquired: body.dateAquired,
+        price: body.price,
+        tags: body.tags,
       },
       viewOwner ?? userId,
     );
@@ -213,8 +230,15 @@ export class WardrobeController {
       canClone = false;
     }
 
+    const wearStats = await this.wearStatsService.statsByGarment(
+      garment.owner?.id,
+    );
+    const [stats] = this.wearStatsService.annotate([garment], wearStats);
+
     return {
       garment,
+      stats,
+      tags: GarmentService.splitTags(garment.tags),
       categoryLabel: this.garmentService.resolveCategoryLabel(
         garment.category,
         i18n,
@@ -272,6 +296,7 @@ export class WardrobeController {
       colors: colorEnumValues,
       customColors,
       viewOwner: viewOwner ?? null,
+      availableTags: filters.tags,
     };
   }
 
@@ -304,6 +329,7 @@ export class WardrobeController {
       categories,
       colors: Object.values(GarmentColor),
       viewOwner: viewOwner ?? null,
+      availableTags: filters.tags,
     };
   }
 
@@ -318,6 +344,8 @@ export class WardrobeController {
       color?: GarmentColor;
       size?: string;
       notes?: string;
+      price?: string;
+      tags?: string;
     },
     @Req() req: FastifyRequest,
     @Res() reply: FastifyReply,
@@ -336,6 +364,8 @@ export class WardrobeController {
         color: Array.isArray(body.color) ? body.color.join(',') : body.color,
         size: body.size,
         notes: body.notes,
+        price: body.price,
+        tags: body.tags,
       },
       userId,
     );
@@ -355,6 +385,8 @@ export class WardrobeController {
       notes?: string;
       washingDetails?: string;
       dateAquired?: string;
+      price?: string;
+      tags?: string;
     },
     @Req() req: FastifyRequest,
     @Res() reply: FastifyReply,
@@ -379,6 +411,8 @@ export class WardrobeController {
         notes: body.notes,
         washingDetails: body.washingDetails,
         dateAquired: body.dateAquired,
+        price: body.price,
+        tags: body.tags,
       },
       viewOwner ?? userId,
       userId,
