@@ -8,6 +8,10 @@
       {
         "include": "i18n/**/*",
         "watchAssets": true
+      },
+      {
+        "include": "tryon/*.py",
+        "watchAssets": true
       }
     ],
     "builder": "swc"

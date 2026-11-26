@@ -1,0 +1,88 @@
+{{>navbar}}
+
+<main class="p-4 pt-20 pb-24 max-w-2xl mx-auto">
+  <div class="flex items-center justify-between mb-4 px-2">
+    <h1 class="text-2xl font-bold">✨ {{t 'lang.TRYON'}}</h1>
+    <a href="/tryon/settings" class="btn btn-ghost btn-sm" id="tryon-settings-link">⚙ {{t 'lang.TRYON_SETTINGS'}}</a>
+  </div>
+
+  {{#if error}}
+  <div class="alert alert-error mb-4 text-sm" id="tryon-error">{{error}}</div>
+  {{/if}}
+  {{#if skipped}}
+  <div class="alert alert-warning mb-4 text-sm" id="tryon-skipped">{{t 'lang.TRYON_SKIPPED'}}: {{skipped}}</div>
+  {{/if}}
+
+  {{!-- Readiness banner --}}
+  {{#if isRemote}}
+  <div class="alert mb-4 text-sm">
+    <span>🖥 {{t 'lang.TRYON_MODE_REMOTE_HINT'}} <code>{{remoteUrl}}</code></span>
+  </div>
+  {{else}}{{#unless installed}}
+  <div class="alert alert-info mb-4 text-sm" id="tryon-not-installed">
+    <span>{{#if installing}}{{t 'lang.TRYON_INSTALLING_HINT'}}{{else}}{{t 'lang.TRYON_NOT_INSTALLED_HINT'}}{{/if}}</span>
+    <a href="/tryon/settings#install" class="btn btn-sm btn-primary">{{t 'lang.TRYON_SETTINGS'}}</a>
+  </div>
+  {{/unless}}{{/if}}
+
+  <form method="post" action="/tryon" enctype="multipart/form-data" class="card bg-base-100 shadow-sm mb-6" id="tryon-form"
+    onsubmit="this.querySelector('[type=submit]').classList.add('btn-disabled')">
+    <div class="card-body p-4 gap-4">
+      {{!-- Person photo --}}
+      <div>
+        <h2 class="font-semibold mb-2">1. {{t 'lang.TRYON_YOUR_PHOTO'}}</h2>
+        <div class="flex gap-3 items-start">
+          {{#if lastPerson}}
+          <label class="flex flex-col items-center gap-1 cursor-pointer shrink-0">
+            <img src="/file/{{lastPerson}}" alt="" class="w-20 aspect-[3/4] object-cover rounded-box bg-base-200" />
+            <span class="flex items-center gap-1 text-xs"><input type="checkbox" name="useLast" value="1" class="checkbox checkbox-xs" checked id="use-last" /> {{t 'lang.TRYON_USE_LAST'}}</span>
+          </label>
+          {{/if}}
+          <div class="flex-1">
+            <input type="file" name="person" id="person-input" accept="image/jpeg,image/png,image/webp" class="file-input file-input-sm w-full" {{#unless lastPerson}}required{{/unless}}
+              onchange="var c=document.getElementById('use-last'); if(c && this.files.length) c.checked=false" />
+            <p class="text-xs text-base-content/60 mt-1">{{t 'lang.TRYON_PHOTO_TIPS'}}</p>
+          </div>
+        </div>
+      </div>
+
+      {{!-- What to try on --}}
+      <div>
+        <h2 class="font-semibold mb-2">2. {{t 'lang.TRYON_WHAT'}}</h2>
+        {{#if outfits.length}}
+        <select name="outfitId" id="outfit-select" class="select select-bordered select-sm w-full mb-2"
+          onchange="if(this.value){location.href='/tryon?outfitId='+this.value}else{location.href='/tryon'}">
+          <option value="">{{t 'lang.TRYON_PICK_OUTFIT'}}</option>
+          {{#each outfits}}
+          <option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{#if this.name}}{{this.name}}{{else}}#{{this.id}}{{/if}}</option>
+          {{/each}}
+        </select>
+        {{/if}}
+        {{#if garments.length}}
+        <p class="text-xs text-base-content/60 mb-2">{{t 'lang.TRYON_PICK_GARMENTS'}}</p>
+        <div class="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-72 overflow-y-auto p-1" id="garment-picker">
+          {{#each garments}}
+          <label class="cursor-pointer relative">
+            <input type="checkbox" name="garmentId" value="{{this.id}}" class="peer sr-only" {{#if this.selected}}checked{{/if}} />
+            <img src="/file/nobg/{{this.photo}}" alt="{{this.name}}" title="{{this.name}} · {{this.categoryLabel}}"
+              class="aspect-square w-full object-cover rounded-box bg-base-200 ring-2 ring-transparent peer-checked:ring-primary" />
+            <span class="hidden peer-checked:flex absolute top-1 right-1 badge badge-primary badge-xs">✓</span>
+            <span class="block text-[10px] truncate text-center mt-0.5">{{this.name}}</span>
+          </label>
+          {{/each}}
+        </div>
+        {{else}}
+        <p class="text-sm text-base-content/60">{{t 'lang.TRYON_NO_GARMENTS'}}</p>
+        {{/if}}
+      </div>
+
+      <button type="submit" class="btn btn-primary" id="tryon-submit" {{#unless garments.length}}disabled{{/unless}}>✨ {{t 'lang.TRYON_START'}}</button>
+      <p class="text-xs text-base-content/50">{{t 'lang.TRYON_TIME_HINT'}}</p>
+    </div>
+  </form>
+
+  <h2 class="font-semibold mb-2 px-2" id="jobs">{{t 'lang.TRYON_RESULTS'}}</h2>
+  {{> tryon_jobs}}
+</main>
+
+{{>dock}}

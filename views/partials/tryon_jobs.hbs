@@ -1,0 +1,35 @@
+<div id="tryon-jobs"
+  {{#if hasActive}}hx-get="/tryon/jobs" hx-trigger="every 5s" hx-swap="outerHTML"{{/if}}
+  class="flex flex-col gap-3">
+  {{#each jobs}}
+  <div class="card bg-base-100 shadow-sm tryon-job" data-status="{{this.status}}" id="tryon-job-{{this.id}}">
+    <div class="card-body p-3 gap-2">
+      <div class="flex items-center gap-2">
+        <span class="font-medium text-sm flex-1 truncate">{{this.label}}</span>
+        {{#if this.isActive}}
+        <span class="badge badge-info badge-sm gap-1"><span class="loading loading-spinner loading-xs"></span>{{#ifEquals this.status 'running'}}{{t 'lang.TRYON_RENDERING'}}{{else}}{{t 'lang.TRYON_QUEUED'}}{{/ifEquals}}</span>
+        {{/if}}
+        {{#if this.isDone}}<span class="badge badge-success badge-sm">✓</span>{{/if}}
+        {{#if this.isFailed}}<span class="badge badge-error badge-sm">{{t 'lang.TRYON_FAILED'}}</span>{{/if}}
+        {{#unless this.isActive}}
+        <form method="post" action="/tryon/{{this.id}}/delete" onsubmit="return confirm('{{t 'lang.CONFIRM_DELETE'}}')">
+          <button type="submit" class="btn btn-ghost btn-xs" aria-label="{{t 'lang.DELETE'}}">✕</button>
+        </form>
+        {{/unless}}
+      </div>
+      {{#if this.progress}}<p class="text-xs text-base-content/60 tryon-progress">{{this.progress}}</p>{{/if}}
+      {{#if this.error}}<p class="text-xs text-error whitespace-pre-wrap tryon-error">{{this.error}}</p>{{/if}}
+      <div class="flex gap-2">
+        <img src="/file/{{this.personFile}}" alt="" class="w-24 aspect-[3/4] object-cover rounded-box bg-base-200 {{#if this.isDone}}opacity-60{{/if}}" />
+        {{#if this.resultFile}}
+        <a href="/file/{{this.resultFile}}" target="_blank" hx-boost="false" class="flex-1">
+          <img src="/file/{{this.resultFile}}" alt="{{t 'lang.TRYON_RESULT'}}" class="tryon-result w-full max-w-xs aspect-[3/4] object-contain rounded-box bg-base-200" />
+        </a>
+        {{/if}}
+      </div>
+    </div>
+  </div>
+  {{else}}
+  <p class="text-sm text-base-content/60 px-2" id="tryon-no-jobs">{{t 'lang.TRYON_NO_RESULTS'}}</p>
+  {{/each}}
+</div>

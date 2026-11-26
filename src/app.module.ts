@@ -14,6 +14,7 @@ import { EmailModule } from './email/email.module';
 import { WeatherModule } from './weather/weather.module';
 import { AcceptLanguageResolver, I18nModule } from 'nestjs-i18n';
 import { OpenGraphModule } from './open-graph/open-graph.module';
+import { TryOnModule } from './tryon/tryon.module';
 import { WardrobeModule } from './wardrobe/wardrobe.module';
 import { WardrobeShareModule } from './wardrobe-share/wardrobe-share.module';
 import { MikroOrmModule } from '@mikro-orm/nestjs';
@@ -86,6 +87,7 @@ import { ViewContextModule } from './view-context/view-context.module';
         SITE_URL: Joi.string().default('https://librecloset.lazz.tech'),
         ICON_NAME: Joi.string().default('lazztech_icon.webp'),
         WEATHER_ENABLED: Joi.boolean().default(true),
+        TRYON_DIR: Joi.string().optional(),
         CURRENCY: Joi.string().length(3).uppercase().default('EUR'),
         WEATHER_CACHE_TTL_MS: Joi.number()
           .integer()
@@ -194,6 +196,7 @@ import { ViewContextModule } from './view-context/view-context.module';
     WeatherModule,
     WardrobeModule,
     WardrobeShareModule,
+    TryOnModule,
     ViewContextModule,
   ],
   controllers: [AppController],

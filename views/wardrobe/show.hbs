@@ -298,6 +298,10 @@
     </div>
     {{/if}}
   </div>
+  {{#if canDelete}}{{#if garment.photo}}
+  <a href="/tryon?garmentId={{garment.id}}" class="btn btn-secondary btn-sm w-full mb-3" id="tryon-garment">✨ {{t 'lang.TRYON_BUTTON'}}</a>
+  {{/if}}{{/if}}
+
   {{!-- Laundry --}} {{#if canDelete}}
   <form method="post" action="/laundry/{{garment.id}}/toggle" class="mb-6">
     <input type="hidden" name="returnTo" value="/wardrobe/{{garment.id}}" />

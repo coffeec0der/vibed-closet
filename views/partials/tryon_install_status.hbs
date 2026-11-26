@@ -1,0 +1,49 @@
+<div id="install-status"
+  {{#if install.isInstalling}}hx-get="/tryon/install/status" hx-trigger="every 3s" hx-swap="outerHTML"{{/if}}
+  class="flex flex-col gap-3" data-status="{{install.status}}">
+
+  {{#if install.isInstalled}}
+  <div class="alert alert-success text-sm" id="install-done">✓ {{t 'lang.TRYON_INSTALLED'}}{{#if install.installedAt}} ({{formatDate install.installedAt}}){{/if}}</div>
+  {{/if}}
+  {{#if install.isFailed}}
+  <div class="alert alert-error text-sm whitespace-pre-wrap" id="install-failed">{{t 'lang.TRYON_INSTALL_FAILED'}}: {{install.error}}</div>
+  {{/if}}
+
+  {{#if install.isInstalling}}
+  <ul class="steps steps-vertical text-xs">
+    {{#each install.stepList}}
+    <li class="step {{#if this.done}}step-primary{{/if}} {{#if this.current}}step-primary font-semibold{{/if}}">
+      {{this.label}}{{#if this.current}} <span class="loading loading-dots loading-xs"></span>{{/if}}
+    </li>
+    {{/each}}
+  </ul>
+  {{/if}}
+
+  {{#unless install.isInstalling}}
+  {{#unless install.isInstalled}}
+  <p class="text-sm text-base-content/70">{{t 'lang.TRYON_DOWNLOAD_DESC'}}</p>
+  {{#if install.lowDisk}}
+  <div class="alert alert-warning text-sm">{{t 'lang.TRYON_LOW_DISK'}} ({{install.freeGb}} GB / {{install.requiredGb}} GB)</div>
+  {{/if}}
+  <form method="post" action="/tryon/install">
+    <button type="submit" class="btn btn-primary" id="install-btn">⬇ {{t 'lang.TRYON_DOWNLOAD_BUTTON'}}</button>
+  </form>
+  {{/unless}}
+  {{/unless}}
+
+  {{#if install.log.length}}
+  <details {{#if install.isInstalling}}open{{/if}} {{#if install.isFailed}}open{{/if}}>
+    <summary class="text-xs cursor-pointer text-base-content/60">{{t 'lang.TRYON_INSTALL_LOG'}}</summary>
+    <pre class="text-[10px] leading-tight bg-base-200 rounded p-2 mt-1 max-h-64 overflow-auto whitespace-pre-wrap" id="install-log">{{#each install.log}}{{this}}
+{{/each}}</pre>
+  </details>
+  {{/if}}
+
+  <p class="text-xs text-base-content/50">{{t 'lang.TRYON_STORAGE'}} <code>{{tryonDir}}</code> · {{install.freeGb}} GB {{t 'lang.TRYON_FREE'}}</p>
+
+  {{#if install.isInstalled}}
+  <form method="post" action="/tryon/uninstall" onsubmit="return confirm('{{t 'lang.TRYON_UNINSTALL_CONFIRM'}}')">
+    <button type="submit" class="btn btn-ghost btn-xs text-error" id="uninstall-btn">{{t 'lang.TRYON_UNINSTALL'}}</button>
+  </form>
+  {{/if}}
+</div>

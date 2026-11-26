@@ -1,0 +1,104 @@
+{{>navbar}}
+
+<main class="p-4 pt-20 pb-24 max-w-lg mx-auto">
+  <div class="flex items-center gap-3 mb-4">
+    <a href="/tryon" class="btn btn-ghost btn-sm btn-circle" aria-label="{{t 'lang.TRYON'}}">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-4">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+      </svg>
+    </a>
+    <h1 class="text-2xl font-bold">⚙ {{t 'lang.TRYON_SETTINGS'}}</h1>
+  </div>
+
+  {{#if saved}}<div class="alert alert-success text-sm mb-4" id="settings-saved">{{t 'lang.TRYON_SAVED'}}</div>{{/if}}
+
+  <form method="post" action="/tryon/settings" class="flex flex-col gap-4">
+    {{!-- Where to render --}}
+    <section class="card bg-base-100 shadow-sm">
+      <div class="card-body p-4 gap-3">
+        <h2 class="font-semibold">{{t 'lang.TRYON_WHERE'}}</h2>
+        <label class="flex gap-3 items-start cursor-pointer">
+          <input type="radio" name="mode" value="local" class="radio radio-sm mt-1" {{#if isLocal}}checked{{/if}} id="mode-local" />
+          <span><span class="font-medium">{{t 'lang.TRYON_MODE_LOCAL'}}</span><br /><span class="text-xs text-base-content/60">{{t 'lang.TRYON_MODE_LOCAL_DESC'}}</span></span>
+        </label>
+        <label class="flex gap-3 items-start cursor-pointer">
+          <input type="radio" name="mode" value="remote" class="radio radio-sm mt-1" {{#if isRemote}}checked{{/if}} id="mode-remote" />
+          <span><span class="font-medium">{{t 'lang.TRYON_MODE_REMOTE'}}</span><br /><span class="text-xs text-base-content/60">{{t 'lang.TRYON_MODE_REMOTE_DESC'}}</span></span>
+        </label>
+        <div class="grid gap-2 pl-8">
+          <label class="form-control">
+            <span class="label-text text-xs mb-1">{{t 'lang.TRYON_REMOTE_URL'}}</span>
+            <input type="text" name="remoteUrl" value="{{settings.remoteUrl}}" placeholder="http://192.168.1.20:8188" class="input input-bordered input-sm" id="remote-url" autocomplete="off" />
+          </label>
+          <label class="form-control">
+            <span class="label-text text-xs mb-1">{{t 'lang.TRYON_REMOTE_TOKEN'}}</span>
+            <input type="password" name="remoteToken" value="{{settings.remoteToken}}" class="input input-bordered input-sm" autocomplete="off" />
+          </label>
+          <div class="flex items-center gap-2 text-xs">
+            <button type="button" class="btn btn-xs" hx-get="/tryon/remote/check" hx-target="#remote-status" id="remote-check">{{t 'lang.TRYON_REMOTE_CHECK'}}</button>
+            <span id="remote-status"></span>
+          </div>
+          <details class="text-xs">
+            <summary class="cursor-pointer text-base-content/60">{{t 'lang.TRYON_REMOTE_HOWTO'}}</summary>
+            <ol class="list-decimal pl-5 mt-2 flex flex-col gap-1 text-base-content/80">
+              <li>{{t 'lang.TRYON_REMOTE_STEP1'}} <a href="/tryon/worker.py" hx-boost="false" class="link">worker.py</a></li>
+              <li>{{t 'lang.TRYON_REMOTE_STEP2'}}<pre class="bg-base-200 rounded p-2 mt-1 whitespace-pre-wrap">pip install torch --index-url https://download.pytorch.org/whl/cu124
+pip install diffusers==0.31.0 transformers==4.46.3 accelerate==1.1.1 huggingface-hub==0.26.5 safetensors pillow numpy</pre></li>
+              <li>{{t 'lang.TRYON_REMOTE_STEP3'}}<pre class="bg-base-200 rounded p-2 mt-1 whitespace-pre-wrap">python worker.py download --models ./models
+python worker.py serve --models ./models --port 8188</pre></li>
+              <li>{{t 'lang.TRYON_REMOTE_STEP4'}}</li>
+            </ol>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    {{!-- Quality --}}
+    <section class="card bg-base-100 shadow-sm">
+      <div class="card-body p-4 gap-3">
+        <h2 class="font-semibold">{{t 'lang.TRYON_QUALITY'}}</h2>
+        <label class="form-control">
+          <span class="label-text text-xs mb-1">{{t 'lang.TRYON_SIZE'}}</span>
+          <select name="size" class="select select-bordered select-sm" id="size-select">
+            {{#each sizes}}<option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>{{/each}}
+          </select>
+          <span class="text-xs text-base-content/60 mt-1">{{t 'lang.TRYON_SIZE_HINT'}}</span>
+        </label>
+        <label class="form-control">
+          <span class="label-text text-xs mb-1">{{t 'lang.TRYON_PRECISION'}}</span>
+          <select name="precision" class="select select-bordered select-sm" id="precision-select">
+            <option value="bfloat16" {{#ifEquals settings.precision 'bfloat16'}}selected{{/ifEquals}}>{{t 'lang.TRYON_PRECISION_BF16'}}</option>
+            <option value="float32" {{#ifEquals settings.precision 'float32'}}selected{{/ifEquals}}>{{t 'lang.TRYON_PRECISION_FP32'}}</option>
+          </select>
+        </label>
+        <div class="grid grid-cols-3 gap-2">
+          <label class="form-control">
+            <span class="label-text text-xs mb-1">{{t 'lang.TRYON_STEPS'}}</span>
+            <input type="number" name="steps" min="5" max="100" value="{{settings.steps}}" class="input input-bordered input-sm" />
+          </label>
+          <label class="form-control">
+            <span class="label-text text-xs mb-1">{{t 'lang.TRYON_GUIDANCE'}}</span>
+            <input type="number" name="guidance" min="1" max="10" step="0.1" value="{{settings.guidance}}" class="input input-bordered input-sm" />
+          </label>
+          <label class="form-control">
+            <span class="label-text text-xs mb-1">{{t 'lang.TRYON_THREADS'}}</span>
+            <input type="number" name="threads" min="0" max="64" value="{{settings.threads}}" class="input input-bordered input-sm" />
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <button type="submit" class="btn btn-primary" id="settings-save">{{t 'lang.SAVE'}}</button>
+  </form>
+
+  {{!-- Local model install --}}
+  <section class="card bg-base-100 shadow-sm mt-4" id="install">
+    <div class="card-body p-4 gap-3">
+      <h2 class="font-semibold">{{t 'lang.TRYON_LOCAL_MODEL'}}</h2>
+      {{> tryon_install_status}}
+      <p class="text-xs text-base-content/50">{{t 'lang.TRYON_LICENSE_NOTE'}}</p>
+    </div>
+  </section>
+</main>
+
+{{>dock}}

@@ -72,3 +72,7 @@ node_modules/
 
 # Load test results
 /scripts/results/
+
+# Python
+__pycache__/
+*.pyc

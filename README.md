@@ -84,6 +84,7 @@ Note, these screenshots are taken of the web application viewed as an installed 
 - **Packing list** - every garment scheduled in a date range, with a checklist
 - **Automatic color** - the main color is detected from the photo when you add one
 - **Export / import** - download your whole wardrobe (data + photos) as a zip, and import it on any instance
+- **AI try-on (optional, fully local)** - see an outfit on a photo of yourself. One click in Try-on settings downloads the model into the data folder; renders on this server's CPU (~3 GB RAM) or on another machine (e.g. a gaming PC) when it's online
 - **Offline-ready PWA** - install to home screen, works without internet
 - **Optional auth** - run open for personal use or enable JWT accounts for multi-user
 - **S3 or local storage** - local disk by default, swap to any S3-compatible provider
@@ -103,6 +104,25 @@ We've [refactored the server](https://github.com/Lazztech/Libre-Closet/pull/79) 
 | Latency p50  | 7.00 ms      | 4.00 ms      | **–42.86%** |
 | Latency p99  | 18.00 ms     | 11.00 ms     | **–38.89%** |
 | Throughput   | 26.39 MB/sec | 44.30 MB/sec | **+67.87%** |
+
+---
+
+
+## AI try-on
+
+Try-on is optional and runs entirely on your own hardware. Open **Try-on → Try-on settings** and click **Download try-on model**: Libre Closet downloads a Python runtime, PyTorch (CPU) and the model weights into `TRYON_DIR` (about 6-7 GB of disk). Nothing is added to the Docker image.
+
+- **On this server:** renders on the CPU in the background, one garment at a time, using about 3 GB of RAM at 384 × 512. Expect several minutes per garment on a small machine.
+- **On another machine:** download `worker.py` from the settings page onto a PC with a GPU, run `python worker.py serve --models ./models`, and enter its URL. Jobs wait in the queue while that machine is offline.
+
+The model is [CatVTON](https://github.com/Zheng-Chong/CatVTON) (weights CC BY-NC-SA 4.0, non-commercial) on Stable Diffusion 1.5 inpainting, with SegFormer for the clothing mask. Tops, bottoms, dresses and outerwear can be tried on; shoes and accessories are skipped.
+
+**Home Assistant add-on:** keep the multi-gigabyte models out of your backups by adding this to the add-on's `config.yaml`:
+
+```yaml
+backup_exclude:
+  - "**/tryon/**"
+```
 
 ---
 
@@ -166,6 +186,7 @@ npm run start:prod
 | `SUPPORTER_PROMPT_ENABLED`         | Show the "support the project" nudge modal     | `true`         | `false`                                                                                   |
 | `WEATHER_ENABLED`                  | Set `false` to disable weather (fully offline) | `true`         | `false`                                                                                   |
 | `CURRENCY`                         | ISO 4217 currency for garment prices           | `EUR`          | `USD`                                                                                     |
+| `TRYON_DIR`                        | Where the try-on runtime and models are stored | `DATA_PATH/tryon` | `/share/libre-closet-tryon`                                                           |
 | `WEATHER_CACHE_TTL_MS`             | How long Open-Meteo forecasts are cached (ms)  | `1800000`      | `3600000`                                                                                 |
 | `ACCESS_TOKEN_SECRET`              | JWT signing secret - **change for production** | `ChangeMe!`    | `u9n8c2y847rfctb23468tcb689f243`                                                          |
 | `DATABASE_TYPE`                    | `sqlite` or `postgres`                         | `sqlite`       | `postgres`                                                                                |

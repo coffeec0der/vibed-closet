@@ -68,6 +68,7 @@
   <p class="text-base-content/40 text-sm italic mb-8">No garments added yet.</p>
   {{/if}} {{!-- Actions --}}
   <div class="divider"></div>
+  <a href="/tryon?outfitId={{outfit.id}}" class="btn btn-secondary btn-sm w-full mb-3" id="tryon-outfit">✨ {{t 'lang.TRYON_BUTTON'}}</a>
   <div class="flex gap-3 justify-between items-center">
     <a href="/outfits/{{outfit.id}}/edit?returnTo=/outfits/{{outfit.id}}" class="btn btn-outline btn-sm">
       <svg
