@@ -148,11 +148,13 @@ Settings are add-on options in the Home Assistant UI:
 
 | Option | Default | |
 | --- | --- | --- |
-| `auth_enabled` | `true` | Require login |
-| `disable_registration` | `true` | Block new sign-ups (turn off once to create your account) |
+| `auth_enabled` | `false` | Require login (see below before turning it on) |
+| `disable_registration` | `false` | Block new sign-ups (turn on after creating your account) |
 | `currency` | `EUR` | Currency for garment prices |
 | `weather_enabled` | `true` | `false` = no external weather calls |
 | `app_name` | `Libre Closet` | Name shown in the app |
+
+**Turning login on later:** items added while login was off belong to nobody and are hidden once login is on. Move them into your account first: with login off, go to Backup → Download export; turn `auth_enabled` on and restart; register; then Backup → Import zip.
 
 Data (database, photos, try-on models) lives in the add-on's `/data`. A login secret is generated on first start and kept there. Try-on models are excluded from Home Assistant backups.
 
