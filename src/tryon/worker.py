@@ -173,6 +173,7 @@ def download(models: Path) -> None:
                       allow_patterns=["config.json", "preprocessor_config.json",
                                       seg])
     log_progress("download", total, total)
+    ensure_bf16_unet(models)
 
 
 def check(models: Path) -> None:
@@ -303,6 +304,76 @@ def load_attention_weights(unet, ckpt_dir: Path) -> None:
 
 
 
+
+_ST_SIZES = {"F64": 8, "F32": 4, "F16": 2, "BF16": 2, "I64": 8, "I32": 4,
+             "I16": 2, "I8": 1, "U8": 1, "BOOL": 1}
+
+
+def convert_safetensors_bf16(src: Path, dst: Path) -> None:
+    """Rewrites a safetensors file with float tensors in bfloat16, streaming
+    one tensor at a time (memory use = one tensor, not the whole model)."""
+    import struct
+
+    import torch
+    from safetensors import safe_open
+
+    with safe_open(str(src), framework="pt") as f:
+        keys = list(f.keys())
+        header, offset = {}, 0
+        for key in keys:
+            sl = f.get_slice(key)
+            shape, dtype = list(sl.get_shape()), sl.get_dtype()
+            out = "BF16" if dtype in ("F64", "F32", "F16", "BF16") else dtype
+            n = 1
+            for d in shape:
+                n *= d
+            size = n * _ST_SIZES[out]
+            header[key] = {"dtype": out, "shape": shape,
+                           "data_offsets": [offset, offset + size]}
+            offset += size
+        raw = json.dumps(header, separators=(",", ":")).encode()
+        raw += b" " * (-len(raw) % 8)
+        tmp = dst.with_name(dst.name + ".tmp")
+        with open(tmp, "wb") as fh:
+            fh.write(struct.pack("<Q", len(raw)))
+            fh.write(raw)
+            for key in keys:
+                t = f.get_tensor(key)
+                if header[key]["dtype"] == "BF16":
+                    t = t.to(torch.bfloat16)
+                fh.write(t.contiguous().view(torch.uint8).numpy().tobytes())
+                del t
+    os.replace(tmp, dst)
+
+
+def ensure_bf16_unet(models: Path) -> None:
+    """Makes sure a bfloat16 copy of the UNet exists and drops the original.
+
+    Loading weights stored in the same precision the model runs in lets
+    PyTorch use the memory-mapped file directly: the 1.7 GB of weights become
+    reclaimable page cache instead of locked RAM (peak ~1.2 GB vs ~2.8 GB)."""
+    unet = models / "sd-inpainting" / "unet"
+    target = unet / "diffusion_pytorch_model.bf16.safetensors"
+    if target.exists():
+        return
+    for name in ("diffusion_pytorch_model.fp16.safetensors",
+                 "diffusion_pytorch_model.safetensors"):
+        src = unet / name
+        if src.exists():
+            log(f"Optimizing model weights for low memory (one time): {name}")
+            convert_safetensors_bf16(src, target)
+            src.unlink()
+            release_memory()
+            return
+
+
+def unet_variant(base: Path) -> str | None:
+    """Which UNet weight file to load: a dtype-matched copy if present."""
+    for v in ("bf16", "fp16"):
+        if (base / "unet" / f"diffusion_pytorch_model.{v}.safetensors").exists():
+            return v
+    return None
+
 class TryOnPipeline:
     def __init__(self, unet, vae, scheduler, device, dtype, vae_dtype):
         self.unet, self.vae, self.scheduler = unet, vae, scheduler
@@ -321,10 +392,9 @@ class TryOnPipeline:
         vae_dtype = {"float32": torch.float32, "bfloat16": torch.bfloat16}.get(
             vae_name or "", dtype)
         base = models / "sd-inpainting"
-        variant = None
-        src = base / "source.json"
-        if src.exists() and ".fp16." in json.loads(src.read_text()).get("unet", ""):
-            variant = "fp16"
+        if dtype == torch.bfloat16:
+            ensure_bf16_unet(models)
+        variant = unet_variant(base)
         log(f"Loading models on {device} ({str(dtype).replace('torch.', '')})")
         # diffusers' loader memory-maps the file: ~2.1 GB of real (anonymous)
         # memory for the bf16 UNet; the rest of RSS is reclaimable file cache.

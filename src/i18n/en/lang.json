@@ -386,7 +386,7 @@
   "TRYON_SAVED": "Settings saved.",
   "TRYON_WHERE": "Where to render",
   "TRYON_MODE_LOCAL": "On this server",
-  "TRYON_MODE_LOCAL_DESC": "Uses this machine's CPU. Needs the model downloaded below (~3 GB of models, ~2-3 GB RAM while rendering).",
+  "TRYON_MODE_LOCAL_DESC": "Uses this machine's CPU. Needs the model downloaded below (~3 GB of models, ~1-1.5 GB RAM while rendering).",
   "TRYON_MODE_REMOTE": "On another machine",
   "TRYON_MODE_REMOTE_DESC": "Sends jobs to a worker on e.g. a gaming PC. Jobs wait in the queue while that machine is off.",
   "TRYON_REMOTE_URL": "Remote worker URL",
@@ -416,6 +416,6 @@
   "TRYON_UNINSTALL_CONFIRM": "Remove the try-on model and runtime? Your results are kept.",
   "TRYON_LICENSE_NOTE": "Models are downloaded from Hugging Face: CatVTON (CC BY-NC-SA 4.0, non-commercial), Stable Diffusion 1.5 inpainting (CreativeML OpenRAIL-M) and SegFormer clothes segmentation (MIT).",
   "TRYON_PRECISION": "Precision (this server)",
-  "TRYON_PRECISION_BF16": "Memory saver (bfloat16, ~2-3 GB RAM)",
+  "TRYON_PRECISION_BF16": "Memory saver (bfloat16, ~1-1.5 GB RAM)",
   "TRYON_PRECISION_FP32": "Full precision (float32, ~4-5 GB RAM, can be faster)"
 }

@@ -84,7 +84,7 @@ Note, these screenshots are taken of the web application viewed as an installed 
 - **Packing list** - every garment scheduled in a date range, with a checklist
 - **Automatic color** - the main color is detected from the photo when you add one
 - **Export / import** - download your whole wardrobe (data + photos) as a zip, and import it on any instance
-- **AI try-on (optional, fully local)** - see an outfit on a photo of yourself. One click in Try-on settings downloads the model into the data folder; renders on this server's CPU (~3 GB RAM) or on another machine (e.g. a gaming PC) when it's online
+- **AI try-on (optional, fully local)** - see an outfit on a photo of yourself. One click in Try-on settings downloads the model into the data folder; renders on this server's CPU (~1.5 GB RAM) or on another machine (e.g. a gaming PC) when it's online
 - **Offline-ready PWA** - install to home screen, works without internet
 - **Optional auth** - run open for personal use or enable JWT accounts for multi-user
 - **S3 or local storage** - local disk by default, swap to any S3-compatible provider
@@ -112,7 +112,7 @@ We've [refactored the server](https://github.com/Lazztech/Libre-Closet/pull/79) 
 
 Try-on is optional and runs entirely on your own hardware. Open **Try-on → Try-on settings** and click **Download try-on model**: Libre Closet downloads a Python runtime, PyTorch (CPU) and the model weights into `TRYON_DIR` (about 6-7 GB of disk). Nothing is added to the Docker image.
 
-- **On this server:** renders on the CPU in the background, one garment at a time, using about 3 GB of RAM at 384 × 512. Expect several minutes per garment on a small machine.
+- **On this server:** renders on the CPU in the background, one garment at a time, using about 1.2 GB of RAM at 384 × 512 (the model weights are memory-mapped from disk on top of that, as reclaimable cache). Expect several minutes per garment on a small machine.
 - **On another machine:** download `worker.py` from the settings page onto a PC with a GPU, run `python worker.py serve --models ./models`, and enter its URL. Jobs wait in the queue while that machine is offline.
 
 The model is [CatVTON](https://github.com/Zheng-Chong/CatVTON) (weights CC BY-NC-SA 4.0, non-commercial) on Stable Diffusion 1.5 inpainting, with SegFormer for the clothing mask. Tops, bottoms, dresses and outerwear can be tried on; shoes and accessories are skipped.
