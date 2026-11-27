@@ -10,6 +10,7 @@ on:
       - '**.md'
       - 'test/**'
       - 'ha-addon/libre_closet/config.yaml'
+      - '.github/**'
   workflow_dispatch:
 
 concurrency:
