@@ -257,18 +257,6 @@ class SkipAttnProcessor:
         return hidden_states
 
 
-def self_attention_modules(unet):
-    """The trainable module list exactly as CatVTON builds it, so checkpoint
-    keys (indices into this list) line up."""
-    import torch
-
-    blocks = torch.nn.ModuleList()
-    for name, module in unet.named_modules():
-        if "attn1" in name:
-            blocks.append(module)
-    return blocks
-
-
 def patch_unet(unet) -> None:
     from diffusers.models.attention_processor import AttnProcessor2_0
 
@@ -279,52 +267,91 @@ def patch_unet(unet) -> None:
     unet.set_attn_processor(procs)
 
 
+def self_attention_layers(unet) -> list:
+    """The UNet's self-attention modules (".attn1") in model order."""
+    return [m for name, m in unet.named_modules() if name.endswith("attn1")]
+
+
 def load_attention_weights(unet, ckpt_dir: Path) -> None:
-    """Loads CatVTON's self-attention weights and verifies every self-attention
-    parameter received a value."""
+    """Loads CatVTON's self-attention weights into the UNet.
+
+    CatVTON saves them with keys like "104.to_k.weight": an index into a flat
+    list of modules it built from the UNet, followed by the parameter name.
+    That list also holds child modules (and, in CatVTON's code, its attention
+    processors), so the index step per layer depends on library details.
+    Instead of rebuilding that list, read the layout from the file: entries
+    with "<i>.to_q.weight" are whole attention layers; sorted by index they
+    match the UNet's self-attention layers one to one. Full parameter names
+    ("...attn1.to_q.weight", optionally prefixed "unet.") are accepted too.
+    Every self-attention parameter must receive a value."""
+    import re
+
     import torch
+    from safetensors import safe_open
+
     files = sorted(ckpt_dir.glob("*.safetensors"))
     if not files:
         raise RuntimeError(f"No safetensors in {ckpt_dir}")
+    layers = self_attention_layers(unet)
+    if not layers:
+        raise RuntimeError("UNet has no self-attention layers")
 
-    blocks = self_attention_modules(unet)
-    # CatVTON saves keys as indices into the module list built above
-    # ("0.to_q.weight"); accept full UNet parameter names too, with or
-    # without a "unet." prefix, in case a checkpoint was saved that way.
-    params = dict(blocks.named_parameters(remove_duplicate=False))
-    for name, p in unet.named_parameters():
+    keys = []
+    for f in files:
+        with safe_open(str(f), framework="pt") as fh:
+            keys += [(f, k) for k in fh.keys()]
+    layer_index = sorted({int(k.split(".", 1)[0]) for _, k in keys
+                          if re.fullmatch(r"\d+\.to_q\.weight", k)})
+    by_index = {}
+    if layer_index:
+        if len(layer_index) != len(layers):
+            raise RuntimeError(
+                f"CatVTON checkpoint has {len(layer_index)} attention layers, "
+                f"the UNet has {len(layers)}. Model files may not match.")
+        by_index = dict(zip(layer_index, layers))
+    full_names = {}
+    for name, param in unet.named_parameters():
         if ".attn1." in name:
-            params.setdefault(name, p)
-            params.setdefault(f"unet.{name}", p)
-    wanted = {id(p) for p in blocks.parameters()}
-    loaded = set()
-    unknown = []
-    from safetensors import safe_open
+            full_names[name] = param
+            full_names[f"unet.{name}"] = param
 
-    def tensors():
-        for f in files:  # one tensor at a time: no full copy in RAM
+    wanted = {id(p) for layer in layers for p in layer.parameters()}
+    loaded, skipped = set(), 0
+    with torch.no_grad():
+        for f in files:
             with safe_open(str(f), framework="pt") as fh:
                 for key in fh.keys():
-                    yield key, fh.get_tensor(key)
-
-    with torch.no_grad():
-        for key, tensor in tensors():
-            p = params.get(key)
-            if p is None:
-                unknown.append(key)
-                continue
-            if p.shape != tensor.shape:
-                raise RuntimeError(
-                    f"Shape mismatch for {key}: {tuple(tensor.shape)} vs {tuple(p.shape)}")
-            p.copy_(tensor.to(p.dtype))
-            loaded.add(id(p))
-    if wanted - loaded:
+                    head, _, rest = key.partition(".")
+                    param = None
+                    if head.isdigit() and int(head) in by_index:
+                        try:
+                            param = by_index[int(head)].get_parameter(rest)
+                        except AttributeError:
+                            param = None
+                    if param is None:
+                        param = full_names.get(key)
+                    if param is None:
+                        skipped += 1  # alias of a child module, or unrelated
+                        continue
+                    tensor = fh.get_tensor(key)
+                    if tensor.shape != param.shape:
+                        raise RuntimeError(
+                            f"Shape mismatch for {key}: {tuple(tensor.shape)} "
+                            f"vs {tuple(param.shape)}")
+                    # Fresh storage rather than copy_(): the UNet's own weights
+                    # may be memory-mapped from disk.
+                    param.data = tensor.to(param.dtype)
+                    loaded.add(id(param))
+    missing = len(wanted - loaded)
+    if missing:
+        sample = [k for _, k in keys[:3]]
         raise RuntimeError(
-            f"CatVTON checkpoint left {len(wanted - loaded)} of {len(wanted)} "
-            f"attention parameters unset ({len(unknown)} unknown keys, e.g. "
-            f"{unknown[:3]}). Model files may not match this worker.")
-
-
+            f"CatVTON checkpoint left {missing} of {len(wanted)} attention "
+            f"parameters unset ({len(layer_index)} indexed layers found, "
+            f"{skipped} keys skipped, e.g. {sample}). Model files may not "
+            f"match this worker.")
+    log(f"Loaded CatVTON attention weights: {len(layers)} layers, "
+        f"{len(loaded)} tensors")
 
 
 _ST_SIZES = {"F64": 8, "F32": 4, "F16": 2, "BF16": 2, "I64": 8, "I32": 4,
@@ -779,15 +806,13 @@ def make_tiny_models(models: Path) -> None:
     DDIMScheduler(beta_schedule="scaled_linear", clip_sample=False,
                   set_alpha_to_one=False).save_pretrained(
         models / "sd-inpainting" / "scheduler")
-    # Attention checkpoint keyed like CatVTON's (ModuleList indices),
-    # de-duplicated like safetensors requires.
-    blocks = self_attention_modules(unet)
-    seen, state = set(), {}
-    for k, v in blocks.state_dict(keep_vars=True).items():
-        if id(v) in seen:
-            continue
-        seen.add(id(v))
-        state[k] = v.detach().clone().contiguous()
+    # Attention checkpoint laid out like CatVTON's real file: each layer at
+    # index 8*j (its module list also holds 7 child/processor entries per
+    # layer, which safetensors de-duplicates away), e.g. "104.to_k.weight".
+    state = {}
+    for j, layer in enumerate(self_attention_layers(unet)):
+        for name, param in layer.named_parameters():
+            state[f"{8 * j}.{name}"] = param.detach().clone().contiguous()
     att = models / "catvton" / CATVTON_VERSION / "attention"
     att.mkdir(parents=True, exist_ok=True)
     save_file(state, str(att / "model.safetensors"))

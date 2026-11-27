@@ -452,6 +452,9 @@ export class TryOnService implements OnApplicationBootstrap, OnModuleDestroy {
               if (msg.message.startsWith('Optimizing')) {
                 phase = 'optimize';
                 void report('optimizing model weights (one time)');
+              } else if (msg.message.startsWith('Loading models')) {
+                phase = 'load';
+                void report('loading model');
               }
             }
           }
@@ -465,11 +468,11 @@ export class TryOnService implements OnApplicationBootstrap, OnModuleDestroy {
           this.child = undefined;
           if (code === 0) return resolve();
           const oom = signal === 'SIGKILL' || code === 137;
-          if (stderr.length) {
-            this.logger.warn(
-              `Try-on worker exited (code ${code}, signal ${signal}, phase ${phase}):\n${stderr.slice(-20).join('\n')}`,
-            );
-          }
+          this.logger.warn(
+            `Try-on worker exited (code ${code}, signal ${signal}, phase ${phase})` +
+              (errorLine ? `: ${errorLine}` : '') +
+              (stderr.length ? `\n${stderr.slice(-20).join('\n')}` : ''),
+          );
           reject(
             new Error(
               oom
