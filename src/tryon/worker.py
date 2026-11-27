@@ -244,6 +244,46 @@ def pick_dtype(device: str):
     return torch.float16 if device in ("cuda", "mps") else torch.bfloat16
 
 
+def cpu_has_native_bf16() -> bool:
+    """True when the CPU computes bfloat16 natively (AVX512-BF16 / AMX).
+    Without it PyTorch's bf16 kernels fall back to slow, mostly
+    single-threaded code (e.g. AMD Zen 2/3 laptops)."""
+    forced = os.environ.get("TRYON_NATIVE_BF16")
+    if forced in ("0", "1"):
+        return forced == "1"
+    try:
+        flags = open("/proc/cpuinfo").read()
+    except OSError:
+        return False
+    return "avx512_bf16" in flags or "amx_bf16" in flags
+
+
+def enable_fp32_compute(model) -> None:
+    """Keeps the weights in bfloat16 (memory-mapped, small) but computes in
+    float32: each layer's own weights are upcast just for its forward pass and
+    dropped right after, so only one layer at a time exists in fp32. Fast,
+    multi-threaded fp32 kernels instead of slow emulated bf16 ones."""
+    import torch
+
+    def pre(module, args):
+        module._lowp_params = {}
+        for name, param in module.named_parameters(recurse=False):
+            if param.dtype == torch.bfloat16:
+                module._lowp_params[name] = param.data
+                param.data = param.data.float()
+
+    def post(module, args, output):
+        for name, data in (module._lowp_params or {}).items():
+            getattr(module, name).data = data
+        module._lowp_params = None
+
+    for module in model.modules():
+        if any(True for _ in module.parameters(recurse=False)):
+            module._lowp_params = None
+            module.register_forward_pre_hook(pre)
+            module.register_forward_hook(post)
+
+
 # ---------------------------------------------------------------------------
 # CatVTON pipeline
 # ---------------------------------------------------------------------------
@@ -474,12 +514,17 @@ class TryOnPipeline:
         from diffusers import AutoencoderKL, DDIMScheduler, UNet2DConditionModel
 
         device = pick_device()
-        dtype = pick_dtype(device)
-        # On CPU the VAE follows TRYON_VAE_DTYPE (default: same as the UNet,
-        # saving ~170 MB in bf16).
+        dtype = pick_dtype(device)  # storage precision of the UNet weights
+        compute = dtype
+        if (device == "cpu" and dtype == torch.bfloat16
+                and not cpu_has_native_bf16()):
+            compute = torch.float32
+            log("CPU has no native bfloat16: weights stay bfloat16, "
+                "computing in float32 (much faster on this CPU)")
+        # On CPU the VAE follows TRYON_VAE_DTYPE (default: the compute dtype).
         vae_name = os.environ.get("TRYON_VAE_DTYPE")
         vae_dtype = {"float32": torch.float32, "bfloat16": torch.bfloat16}.get(
-            vae_name or "", dtype)
+            vae_name or "", compute)
         base = models / "sd-inpainting"
         if dtype == torch.bfloat16:
             ensure_bf16_unet(models)
@@ -502,9 +547,11 @@ class TryOnPipeline:
                                             torch_dtype=vae_dtype)
         scheduler = DDIMScheduler.from_pretrained(base, subfolder="scheduler")
         unet.to(device).eval()
+        if compute != dtype:
+            enable_fp32_compute(unet)
         vae.to(device).eval()
         mem_report("models loaded")
-        return cls(unet, vae, scheduler, device, dtype, vae_dtype)
+        return cls(unet, vae, scheduler, device, compute, vae_dtype)
 
     def _encode(self, x, generator):
         import torch
