@@ -2,7 +2,7 @@
 # as an add-on repository in Home Assistant. GitHub Actions builds the image
 # and bumps `version` on every change to main; don't edit it by hand.
 name: Libre Closet (vibed)
-version: "0.9.0"
+version: "0.9.1"
 slug: libre_closet
 description: Self-hosted wardrobe organizer with local AI try-on (vibed-closet)
 url: https://github.com/coffeec0der/vibed-closet
