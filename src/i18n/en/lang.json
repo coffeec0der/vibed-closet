@@ -417,5 +417,6 @@
   "TRYON_LICENSE_NOTE": "Models are downloaded from Hugging Face: CatVTON (CC BY-NC-SA 4.0, non-commercial), Stable Diffusion 1.5 inpainting (CreativeML OpenRAIL-M) and SegFormer clothes segmentation (MIT).",
   "TRYON_PRECISION": "Precision (this server)",
   "TRYON_PRECISION_BF16": "Memory saver (bfloat16, ~1-1.5 GB RAM)",
-  "TRYON_PRECISION_FP32": "Full precision (float32, ~4-5 GB RAM, can be faster)"
+  "TRYON_PRECISION_FP32": "Full precision (float32, ~4-5 GB RAM, can be faster)",
+  "IMPORT_WAIT": "Importing… every photo is processed again, so a big wardrobe can take a few minutes. Keep this page open."
 }

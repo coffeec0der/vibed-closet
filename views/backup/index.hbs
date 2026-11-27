@@ -25,13 +25,14 @@
     <div class="card-body p-4 gap-3">
       <h2 class="font-semibold">{{t 'lang.IMPORT_TITLE'}}</h2>
       <p class="text-sm text-base-content/70">{{t 'lang.IMPORT_DESC'}}</p>
-      <form method="post" action="/backup/import" enctype="multipart/form-data" class="flex flex-col gap-2"
-        onsubmit="this.querySelector('button').classList.add('btn-disabled'); this.querySelector('.loading').classList.remove('hidden');">
-        <input type="file" name="file" id="import-file" accept=".zip,application/zip" class="file-input file-input-sm w-full" required />
+      <form method="post" action="/backup/import" enctype="multipart/form-data" hx-boost="false" class="flex flex-col gap-2"
+        onsubmit="this.querySelector('button').classList.add('btn-disabled'); this.querySelector('.loading').classList.remove('hidden'); document.getElementById('import-wait').classList.remove('hidden');">
+        <input type="file" name="file" id="import-file" accept=".zip,application/zip,application/x-zip-compressed,application/octet-stream" class="file-input file-input-sm w-full" required />
         <button type="submit" id="import-btn" class="btn btn-outline btn-sm self-start">
           <span class="loading loading-spinner loading-xs hidden"></span>
           ⬆ {{t 'lang.IMPORT_BUTTON'}}
         </button>
+        <p id="import-wait" class="hidden text-xs text-base-content/60">{{t 'lang.IMPORT_WAIT'}}</p>
       </form>
     </div>
   </section>
