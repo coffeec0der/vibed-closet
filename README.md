@@ -117,12 +117,7 @@ Try-on is optional and runs entirely on your own hardware. Open **Try-on → Try
 
 The model is [CatVTON](https://github.com/Zheng-Chong/CatVTON) (weights CC BY-NC-SA 4.0, non-commercial) on Stable Diffusion 1.5 inpainting, with SegFormer for the clothing mask. Tops, bottoms, dresses and outerwear can be tried on; shoes and accessories are skipped.
 
-**Home Assistant add-on:** keep the multi-gigabyte models out of your backups by adding this to the add-on's `config.yaml`:
-
-```yaml
-backup_exclude:
-  - "**/tryon/**"
-```
+**Home Assistant add-on:** the models are excluded from Home Assistant backups automatically.
 
 ---
 
@@ -142,21 +137,7 @@ docker run -d \
 
 ### Home Assistant add-on
 
-This repository is a ready-made local Home Assistant add-on: `config.yaml`, `Dockerfile` and `ha/run.sh` are in the root. Copy the whole repository into a folder in your local add-ons directory (e.g. `libre_closet/`) and install it. To update, copy the new files over the old ones and press **Rebuild** (or **Update** when the version changed). Nothing needs editing.
-
-Settings are add-on options in the Home Assistant UI:
-
-| Option | Default | |
-| --- | --- | --- |
-| `auth_enabled` | `false` | Require login (see below before turning it on) |
-| `disable_registration` | `false` | Block new sign-ups (turn on after creating your account) |
-| `currency` | `EUR` | Currency for garment prices |
-| `weather_enabled` | `true` | `false` = no external weather calls |
-| `app_name` | `Libre Closet` | Name shown in the app |
-
-**Turning login on later:** items added while login was off belong to nobody and are hidden once login is on. Move them into your account first: with login off, go to Backup → Download export; turn `auth_enabled` on and restart; register; then Backup → Import zip.
-
-Data (database, photos, try-on models) lives in the add-on's `/data`. A login secret is generated on first start and kept there. Try-on models are excluded from Home Assistant backups.
+Add this repository in Home Assistant: **Settings → Add-ons → Add-on Store → ⋮ → Repositories** → `https://github.com/coffeec0der/vibed-closet`, then install **Libre Closet (vibed)** and turn on **Auto update**. GitHub Actions builds the image on every push to `main` and bumps the add-on version, so updates arrive by themselves. Options and details: [ha-addon/libre_closet/DOCS.md](ha-addon/libre_closet/DOCS.md).
 
 ### docker-compose
 

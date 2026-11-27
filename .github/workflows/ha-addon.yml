@@ -1,0 +1,82 @@
+# Builds the Home Assistant add-on image on every push to main, publishes it
+# to GitHub Container Registry and bumps the add-on version, so Home
+# Assistant offers (or auto-installs) the update.
+name: Home Assistant add-on
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'test/**'
+      - 'ha-addon/libre_closet/config.yaml'
+  workflow_dispatch:
+
+concurrency:
+  group: ha-addon
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      CONFIG: ha-addon/libre_closet/config.yaml
+      IMAGE: ghcr.io/${{ github.repository_owner }}/amd64-vibed-closet
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Next version
+        id: version
+        run: |
+          CURRENT=$(sed -nE 's/^version: *"?([0-9.]+)"?.*/\1/p' "$CONFIG")
+          NEXT=$(echo "$CURRENT" | awk -F. '{printf "%d.%d.%d", $1, $2, $3 + 1}')
+          echo "Current $CURRENT -> next $NEXT"
+          echo "next=$NEXT" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.version.outputs.next }}
+            ${{ env.IMAGE }}:latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            io.hass.type=addon
+            io.hass.arch=amd64
+            io.hass.version=${{ steps.version.outputs.next }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Only after the image exists, so Home Assistant never sees a version
+      # it can't download. [skip ci] stops this commit from re-triggering.
+      - name: Publish the new version
+        env:
+          NEXT: ${{ steps.version.outputs.next }}
+        run: |
+          sed -i -E "s/^version: .*/version: \"$NEXT\"/" "$CONFIG"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Home Assistant add-on $NEXT [skip ci]"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep 5
+          done
+          exit 1

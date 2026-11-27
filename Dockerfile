@@ -1,5 +1,5 @@
 # Home Assistant add-on build (also works with plain `docker build .`).
-# Settings come from the add-on options (see config.yaml / ha/run.sh), so this
+# Settings come from the add-on options (see ha-addon/libre_closet/config.yaml and ha/run.sh), so this
 # file never needs editing. The generic image build lives in docker/Dockerfile.
 
 # Build stage
