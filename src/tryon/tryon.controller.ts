@@ -60,6 +60,7 @@ export class TryOnController {
       isActive: job.status === 'queued' || job.status === 'running',
       isDone: job.status === 'done',
       isFailed: job.status === 'failed',
+      isCancelled: job.status === 'cancelled',
     };
   }
 
@@ -200,6 +201,21 @@ export class TryOnController {
       const message = (err as Error).message ?? 'Could not start try-on';
       return reply.redirect(`/tryon?error=${encodeURIComponent(message)}`, 303);
     }
+  }
+
+  @Post(':id/cancel')
+  async cancel(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: FastifyRequest,
+    @Res() reply: FastifyReply,
+  ) {
+    try {
+      await this.tryOn.cancelJob(id, this.userId(req));
+    } catch (err) {
+      const message = (err as Error).message ?? 'Could not cancel';
+      return reply.redirect(`/tryon?error=${encodeURIComponent(message)}`, 303);
+    }
+    return reply.redirect('/tryon#jobs', 303);
   }
 
   @Post(':id/delete')

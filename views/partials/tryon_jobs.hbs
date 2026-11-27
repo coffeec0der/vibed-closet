@@ -11,6 +11,12 @@
         {{/if}}
         {{#if this.isDone}}<span class="badge badge-success badge-sm">✓</span>{{/if}}
         {{#if this.isFailed}}<span class="badge badge-error badge-sm">{{t 'lang.TRYON_FAILED'}}</span>{{/if}}
+        {{#if this.isCancelled}}<span class="badge badge-ghost badge-sm">{{t 'lang.TRYON_CANCELLED'}}</span>{{/if}}
+        {{#if this.isActive}}
+        <form method="post" action="/tryon/{{this.id}}/cancel" onsubmit="return confirm('{{t 'lang.TRYON_CANCEL_CONFIRM'}}')">
+          <button type="submit" class="btn btn-outline btn-error btn-xs tryon-cancel">{{t 'lang.TRYON_CANCEL'}}</button>
+        </form>
+        {{/if}}
         {{#unless this.isActive}}
         <form method="post" action="/tryon/{{this.id}}/delete" onsubmit="return confirm('{{t 'lang.CONFIRM_DELETE'}}')">
           <button type="submit" class="btn btn-ghost btn-xs" aria-label="{{t 'lang.DELETE'}}">✕</button>

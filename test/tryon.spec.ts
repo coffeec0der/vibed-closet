@@ -247,6 +247,67 @@ test('remote mode waits for the remote worker, then renders there', async ({
   }
 });
 
+test('a queued try-on can be cancelled', async ({ page, request }) => {
+  // Remote mode with nothing listening: the job stays queued.
+  await saveSettings(request, {
+    mode: 'remote',
+    remoteUrl: `127.0.0.1:${REMOTE_PORT}`,
+  });
+  await page.goto(`/tryon?garmentId=${topId}`);
+  await page.click('#tryon-submit');
+  const job = page.locator('.tryon-job').first();
+  await expect(job).toHaveAttribute('data-status', 'queued');
+  page.once('dialog', (d) => d.accept());
+  await job.locator('button.tryon-cancel').click();
+  await expect(page.locator('.tryon-job').first()).toHaveAttribute(
+    'data-status',
+    'cancelled',
+  );
+  await expect(
+    page.locator('.tryon-job').first().locator('button.tryon-cancel'),
+  ).toHaveCount(0);
+});
+
+test('a running local try-on can be cancelled', async ({ page, request }) => {
+  test.setTimeout(180_000);
+  // Slow on purpose: many steps at the largest size.
+  await saveSettings(request, {
+    mode: 'local',
+    steps: '100',
+    size: '768x1024',
+  });
+  await page.goto(`/tryon?garmentId=${topId}`);
+  await page.click('#tryon-submit');
+  await expect
+    .poll(
+      async () => {
+        await page.goto('/tryon');
+        return page
+          .locator('.tryon-job')
+          .first()
+          .locator('.tryon-progress')
+          .textContent();
+      },
+      { timeout: 90_000, intervals: [1000] },
+    )
+    .toContain('step');
+  const started = Date.now();
+  page.once('dialog', (d) => d.accept());
+  await page
+    .locator('.tryon-job')
+    .first()
+    .locator('button.tryon-cancel')
+    .click();
+  await waitForJob(page, 'cancelled', 30_000);
+  expect(Date.now() - started).toBeLessThan(30_000);
+
+  // The queue keeps working afterwards.
+  await saveSettings(request, { mode: 'local' });
+  await page.goto(`/tryon?garmentId=${topId}`);
+  await page.click('#tryon-submit');
+  await waitForJob(page, 'done');
+});
+
 test('finished jobs can be deleted', async ({ page }) => {
   await page.goto('/tryon');
   const before = await page.locator('.tryon-job').count();

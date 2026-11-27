@@ -35,6 +35,9 @@ const REMOTE_TIMEOUT_MS = 60 * 60 * 1000;
 /** Thrown when the remote renderer disappears mid-job: requeue, don't fail. */
 class RendererOffline extends Error {}
 
+/** Thrown when the user cancels the running job. */
+class Cancelled extends Error {}
+
 /**
  * Queues and renders try-on jobs, one at a time. Local jobs run the Python
  * worker as a child process; remote jobs are sent to `worker.py serve` on
@@ -46,6 +49,12 @@ export class TryOnService implements OnApplicationBootstrap, OnModuleDestroy {
   private timer?: NodeJS.Timeout;
   private busy = false;
   private child?: ChildProcess;
+  /** The job currently rendering in this process, for cancellation. */
+  private running?: {
+    id: number;
+    cancelled: boolean;
+    abort: AbortController;
+  };
 
   constructor(
     private readonly em: EntityManager,
@@ -167,6 +176,53 @@ export class TryOnService implements OnApplicationBootstrap, OnModuleDestroy {
     return { job, skipped };
   }
 
+  /**
+   * Cancels a queued or running try-on. A running local render is stopped
+   * immediately (the worker process is terminated); a remote render is
+   * abandoned (the remote machine finishes its current job on its own).
+   */
+  async cancelJob(id: number, userId?: number): Promise<void> {
+    const em = this.em.fork();
+    const job = await em.findOne(TryOnJob, {
+      id,
+      ...(this.ownerFilter(userId) as any),
+    });
+    if (!job) throw new NotFoundException();
+    // Conditional update so a job the queue is just picking up can't slip
+    // through.
+    const dequeued = await em.nativeUpdate(
+      TryOnJob,
+      { id, status: 'queued' },
+      { status: 'cancelled', progress: null as any, finishedAt: new Date() },
+    );
+    if (dequeued) {
+      this.logger.log(`Try-on job ${id} cancelled while queued`);
+      return;
+    }
+    await em.refresh(job);
+    if (job.status !== 'running') {
+      throw new BadRequestException('This try-on has already finished');
+    }
+    if (this.running?.id === id) {
+      this.running.cancelled = true;
+      this.running.abort.abort();
+      const child = this.child;
+      if (child) {
+        child.kill('SIGTERM');
+        setTimeout(() => {
+          if (child.exitCode === null) child.kill('SIGKILL');
+        }, 5000).unref();
+      }
+      this.logger.log(`Try-on job ${id} cancel requested`);
+      return;
+    }
+    // Marked running but not rendering here (e.g. left over): just close it.
+    job.status = 'cancelled';
+    job.progress = undefined;
+    job.finishedAt = new Date();
+    await em.flush();
+  }
+
   async deleteJob(id: number, userId?: number): Promise<void> {
     const em = this.em.fork();
     const job = await em.findOne(TryOnJob, {
@@ -225,16 +281,30 @@ export class TryOnService implements OnApplicationBootstrap, OnModuleDestroy {
       return;
     }
 
-    job.status = 'running';
-    job.renderer = settings.mode;
-    job.startedAt = new Date();
-    job.progress = 'Starting…';
-    job.error = undefined;
-    await em.flush();
+    const claimed = await em.nativeUpdate(
+      TryOnJob,
+      { id: job.id, status: 'queued' },
+      {
+        status: 'running',
+        renderer: settings.mode,
+        startedAt: new Date(),
+        progress: 'Starting…',
+        error: null as any,
+      },
+    );
+    if (!claimed) return; // cancelled in the meantime
+    await em.refresh(job);
     this.logger.log(`Try-on job ${job.id} started (${settings.mode})`);
+    const running = {
+      id: job.id,
+      cancelled: false,
+      abort: new AbortController(),
+    };
+    this.running = running;
 
     try {
       const png = await this.render(job, settings, em);
+      if (running.cancelled) throw new Cancelled();
       const stored = await this.fileService.storeImageFromFileUpload(
         {
           mimetype: 'image/png',
@@ -250,6 +320,15 @@ export class TryOnService implements OnApplicationBootstrap, OnModuleDestroy {
       this.logger.log(`Try-on job ${job.id} done`);
       this.notify(job, 'Your try-on is ready ✨');
     } catch (err) {
+      if (err instanceof Cancelled || running.cancelled) {
+        job.status = 'cancelled';
+        job.progress = undefined;
+        job.error = undefined;
+        job.finishedAt = new Date();
+        await em.flush();
+        this.logger.log(`Try-on job ${job.id} cancelled`);
+        return;
+      }
       if (err instanceof RendererOffline) {
         job.status = 'queued';
         job.progress = 'Remote renderer went offline; will retry';
@@ -264,6 +343,8 @@ export class TryOnService implements OnApplicationBootstrap, OnModuleDestroy {
       await em.flush();
       this.logger.warn(`Try-on job ${job.id} failed: ${job.error}`);
       this.notify(job, 'Try-on failed');
+    } finally {
+      if (this.running === running) this.running = undefined;
     }
   }
 
@@ -327,6 +408,7 @@ export class TryOnService implements OnApplicationBootstrap, OnModuleDestroy {
 
     let person = await fit(await this.readFile(job.personFile));
     for (const [i, pass] of job.passes.entries()) {
+      if (this.running?.cancelled) throw new Cancelled();
       const garment = await em.findOne(Garment, pass.garmentId, {
         populate: ['photo'],
       });
@@ -466,6 +548,7 @@ export class TryOnService implements OnApplicationBootstrap, OnModuleDestroy {
         child.on('error', reject);
         child.on('close', (code, signal) => {
           this.child = undefined;
+          if (this.running?.cancelled) return reject(new Cancelled());
           if (code === 0) return resolve();
           const oom = signal === 'SIGKILL' || code === 137;
           this.logger.warn(
@@ -521,9 +604,13 @@ export class TryOnService implements OnApplicationBootstrap, OnModuleDestroy {
             steps: settings.steps,
             guidance: settings.guidance,
           }),
-          signal: AbortSignal.timeout(REMOTE_TIMEOUT_MS),
+          signal: AbortSignal.any([
+            AbortSignal.timeout(REMOTE_TIMEOUT_MS),
+            ...(this.running ? [this.running.abort.signal] : []),
+          ]),
         });
       } catch (err) {
+        if (this.running?.cancelled) throw new Cancelled();
         throw new RendererOffline((err as Error).message);
       }
       const body = (await res.json().catch(() => ({}))) as {

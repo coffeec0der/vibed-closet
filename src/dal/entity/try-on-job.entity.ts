@@ -8,7 +8,12 @@ import {
 } from '@mikro-orm/core';
 import { User } from './user.entity';
 
-export type TryOnJobStatus = 'queued' | 'running' | 'done' | 'failed';
+export type TryOnJobStatus =
+  | 'queued'
+  | 'running'
+  | 'done'
+  | 'failed'
+  | 'cancelled';
 
 /** One garment rendered onto the person, in order. */
 export interface TryOnPass {
