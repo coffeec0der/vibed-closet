@@ -93,3 +93,22 @@ export function parseWorkerLine(
   if (m[1] === 'DONE') return { type: 'done', path: m[2] };
   return { type: 'error', message: m[2] };
 }
+
+/**
+ * Explains an out-of-memory kill of the worker, depending on the phase it
+ * died in: only the render phase depends on the image size.
+ */
+export function outOfMemoryMessage(phase: string): string {
+  const base = 'The renderer ran out of memory and was stopped';
+  switch (phase) {
+    case 'render':
+      return `${base} while rendering. Try a smaller image size in Try-on settings, or close other memory-hungry apps.`;
+    case 'load':
+    case 'optimize':
+      return `${base} while loading the model, which doesn't depend on the image size. Make sure Precision is set to "Memory saver" in Try-on settings, and free up RAM on the server.`;
+    case 'mask':
+      return `${base} while finding the clothes in your photo. Free up RAM on the server and try again.`;
+    default:
+      return `${base}. Free up RAM on the server and try again.`;
+  }
+}

@@ -22,7 +22,11 @@ import { User } from '../dal/entity/user.entity';
 import { FileService } from '../file/file-service.abstract';
 import { NotificationService } from '../notification/notification.service';
 import { TryOnInstallerService } from './tryon-installer.service';
-import { parseWorkerLine, planPasses } from './tryon-plan.util';
+import {
+  outOfMemoryMessage,
+  parseWorkerLine,
+  planPasses,
+} from './tryon-plan.util';
 import { TryOnSettings, TryOnSettingsService } from './tryon-settings.service';
 
 const TICK_MS = 5000;
@@ -416,6 +420,7 @@ export class TryOnService implements OnApplicationBootstrap, OnModuleDestroy {
         );
         this.child = child;
         let errorLine: string | undefined;
+        let phase = 'start';
         const stderr: string[] = [];
         let buffer = '';
         child.stdout.on('data', (d: Buffer) => {
@@ -425,6 +430,7 @@ export class TryOnService implements OnApplicationBootstrap, OnModuleDestroy {
           for (const line of lines) {
             const msg = parseWorkerLine(line);
             if (msg?.type === 'progress') {
+              phase = msg.stage;
               const stage =
                 msg.stage === 'render'
                   ? `step ${msg.current}/${msg.total}`
@@ -436,6 +442,12 @@ export class TryOnService implements OnApplicationBootstrap, OnModuleDestroy {
               void report(stage);
             } else if (msg?.type === 'error') {
               errorLine = msg.message;
+            } else if (
+              msg?.type === 'log' &&
+              msg.message.startsWith('Optimizing')
+            ) {
+              phase = 'optimize';
+              void report('optimizing model weights (one time)');
             }
           }
         });
@@ -448,10 +460,15 @@ export class TryOnService implements OnApplicationBootstrap, OnModuleDestroy {
           this.child = undefined;
           if (code === 0) return resolve();
           const oom = signal === 'SIGKILL' || code === 137;
+          if (stderr.length) {
+            this.logger.warn(
+              `Try-on worker exited (code ${code}, signal ${signal}, phase ${phase}):\n${stderr.slice(-20).join('\n')}`,
+            );
+          }
           reject(
             new Error(
               oom
-                ? 'The renderer was killed, most likely out of memory. Try a smaller size in Try-on settings.'
+                ? outOfMemoryMessage(phase)
                 : errorLine ||
                     stderr.slice(-5).join('\n') ||
                     `Worker exited with code ${code}`,

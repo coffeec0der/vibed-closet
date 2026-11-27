@@ -7,7 +7,12 @@ import {
   pickUvWheel,
   TryOnInstallerService,
 } from './tryon-installer.service';
-import { parseWorkerLine, planPasses, tryOnCategory } from './tryon-plan.util';
+import {
+  outOfMemoryMessage,
+  parseWorkerLine,
+  planPasses,
+  tryOnCategory,
+} from './tryon-plan.util';
 import {
   DEFAULT_SETTINGS,
   sanitizeSettings,
@@ -227,5 +232,15 @@ describe('installer helpers', () => {
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('outOfMemoryMessage', () => {
+  it('only suggests a smaller size when rendering ran out of memory', () => {
+    expect(outOfMemoryMessage('render')).toContain('smaller image size');
+    for (const phase of ['load', 'optimize', 'mask', 'start']) {
+      expect(outOfMemoryMessage(phase)).not.toContain('smaller image size');
+    }
+    expect(outOfMemoryMessage('load')).toContain('loading the model');
   });
 });

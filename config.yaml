@@ -1,7 +1,7 @@
 # Home Assistant add-on definition. Copy the whole repository into your
 # local add-on folder and press Rebuild; no edits needed.
 name: Libre Closet
-version: "0.8.2"
+version: "0.8.3"
 slug: libre_closet
 description: Self-hosted wardrobe organizer with local AI try-on (vibed-closet)
 url: https://github.com/coffeec0der/vibed-closet
