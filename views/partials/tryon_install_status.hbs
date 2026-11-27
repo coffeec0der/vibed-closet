@@ -39,6 +39,15 @@
   </details>
   {{/if}}
 
+  {{#if install.modelFiles.length}}
+  <details>
+    <summary class="text-xs cursor-pointer text-base-content/60">{{t 'lang.TRYON_MODEL_FILES'}}</summary>
+    <ul class="text-[10px] font-mono mt-1" id="model-files">
+      {{#each install.modelFiles}}<li>{{this.path}} · {{this.mb}} MB</li>{{/each}}
+    </ul>
+  </details>
+  {{/if}}
+
   <p class="text-xs text-base-content/50">{{t 'lang.TRYON_STORAGE'}} <code>{{tryonDir}}</code> · {{install.freeGb}} GB {{t 'lang.TRYON_FREE'}}</p>
 
   {{#if install.isInstalled}}

@@ -46,6 +46,8 @@ export interface InstallState {
   freeBytes?: number;
   requiredBytes: number;
   installedAt?: string;
+  /** Model weight files on disk, for diagnosing memory problems. */
+  modelFiles: { path: string; mb: number }[];
 }
 
 interface PypiFile {
@@ -129,6 +131,7 @@ export class TryOnInstallerService implements OnModuleDestroy {
       freeBytes: this.freeBytes(),
       requiredBytes: REQUIRED_BYTES,
       installedAt,
+      modelFiles: this.modelFiles(),
     };
   }
 
@@ -350,6 +353,33 @@ export class TryOnInstallerService implements OnModuleDestroy {
     } catch {
       return [];
     }
+  }
+
+  private modelFiles(): { path: string; mb: number }[] {
+    const root = this.settings.paths.models;
+    const out: { path: string; mb: number }[] = [];
+    const walk = (dir: string, depth: number) => {
+      if (depth > 4) return;
+      let entries: fs.Dirent[];
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const e of entries) {
+        if (e.name.startsWith('.')) continue;
+        const full = `${dir}/${e.name}`;
+        if (e.isDirectory()) walk(full, depth + 1);
+        else if (/\.(safetensors|bin)$/.test(e.name)) {
+          out.push({
+            path: full.slice(root.length + 1),
+            mb: Math.round(fs.statSync(full).size / 1024 ** 2),
+          });
+        }
+      }
+    };
+    walk(root, 0);
+    return out.sort((a, b) => a.path.localeCompare(b.path));
   }
 
   private freeBytes(): number | undefined {

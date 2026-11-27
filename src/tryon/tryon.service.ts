@@ -421,6 +421,7 @@ export class TryOnService implements OnApplicationBootstrap, OnModuleDestroy {
         this.child = child;
         let errorLine: string | undefined;
         let phase = 'start';
+        let lastMemory: string | undefined;
         const stderr: string[] = [];
         let buffer = '';
         child.stdout.on('data', (d: Buffer) => {
@@ -442,12 +443,16 @@ export class TryOnService implements OnApplicationBootstrap, OnModuleDestroy {
               void report(stage);
             } else if (msg?.type === 'error') {
               errorLine = msg.message;
-            } else if (
-              msg?.type === 'log' &&
-              msg.message.startsWith('Optimizing')
-            ) {
-              phase = 'optimize';
-              void report('optimizing model weights (one time)');
+            } else if (msg?.type === 'log') {
+              // Worker diagnostics (files loaded, memory per phase) go to the
+              // add-on log so failures can be traced there.
+              this.logger.log(`[try-on job ${job.id}] ${msg.message}`);
+              if (msg.message.startsWith('MEM '))
+                lastMemory = msg.message.slice(4);
+              if (msg.message.startsWith('Optimizing')) {
+                phase = 'optimize';
+                void report('optimizing model weights (one time)');
+              }
             }
           }
         });
@@ -468,7 +473,8 @@ export class TryOnService implements OnApplicationBootstrap, OnModuleDestroy {
           reject(
             new Error(
               oom
-                ? outOfMemoryMessage(phase)
+                ? outOfMemoryMessage(phase) +
+                    (lastMemory ? ` (last reading: ${lastMemory})` : '')
                 : errorLine ||
                     stderr.slice(-5).join('\n') ||
                     `Worker exited with code ${code}`,

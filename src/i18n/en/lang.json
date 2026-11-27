@@ -418,5 +418,6 @@
   "TRYON_PRECISION": "Precision (this server)",
   "TRYON_PRECISION_BF16": "Memory saver (bfloat16, ~1-1.5 GB RAM)",
   "TRYON_PRECISION_FP32": "Full precision (float32, ~4-5 GB RAM, can be faster)",
-  "IMPORT_WAIT": "Importing… every photo is processed again, so a big wardrobe can take a few minutes. Keep this page open."
+  "IMPORT_WAIT": "Importing… every photo is processed again, so a big wardrobe can take a few minutes. Keep this page open.",
+  "TRYON_MODEL_FILES": "Model files"
 }
